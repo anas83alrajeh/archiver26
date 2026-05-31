@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نظام الأرشفة الذكي — Smart Archiving</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap" rel="stylesheet">
+<!-- Tesseract.js for free local OCR (Arabic + English) -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+:root{
+  --ink:#14241f; --paper:#f4efe6; --paper-2:#ece4d6;
+  --accent:#2f6b4f; --accent-2:#c9a14a; --accent-deep:#1d4a36;
+  --danger:#b3402f; --muted:#6b7a72; --line:#d6cdba;
+  --card:#fbf8f1; --shadow:0 8px 30px rgba(20,36,31,.10);
+  --radius:14px; --font-ar:'IBM Plex Sans Arabic',system-ui,sans-serif;
+  --font-display:'Cairo',sans-serif; --font-en:'Fraunces',serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--font-ar); background:var(--paper);
+  color:var(--ink); line-height:1.6; min-height:100vh;
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(47,107,79,.06), transparent 40%),
+    radial-gradient(circle at 88% 82%, rgba(201,161,74,.07), transparent 40%);
+}
+[dir="ltr"]{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif}
+.app{display:flex;flex-direction:column;min-height:100vh}
+
+/* ---- Header ---- */
+header{
+  background:linear-gradient(135deg,var(--accent-deep),var(--accent));
+  color:#f4efe6; padding:18px 26px; display:flex; align-items:center;
+  justify-content:space-between; box-shadow:var(--shadow); position:sticky; top:0; z-index:50;
+  border-bottom:3px solid var(--accent-2);
+}
+.brand{display:flex;align-items:center;gap:14px}
+.brand .logo{
+  width:44px;height:44px;border-radius:12px;background:var(--accent-2);
+  display:grid;place-items:center;font-family:var(--font-display);font-weight:900;
+  color:var(--accent-deep);font-size:22px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.15)
+}
+.brand h1{font-family:var(--font-display);font-size:20px;font-weight:700;letter-spacing:-.3px}
+.brand .sub{font-size:12px;opacity:.85;font-weight:400}
+.head-actions{display:flex;align-items:center;gap:10px}
+.lang-toggle{
+  display:flex;background:rgba(255,255,255,.13);border-radius:10px;padding:3px;gap:2px
+}
+.lang-toggle button{
+  border:0;background:transparent;color:#f4efe6;padding:6px 14px;border-radius:8px;
+  cursor:pointer;font-family:inherit;font-weight:600;font-size:13px;transition:.2s
+}
+.lang-toggle button.active{background:var(--accent-2);color:var(--accent-deep)}
+
+/* ---- Layout ---- */
+.shell{display:flex;flex:1;min-height:0}
+nav.side{
+  width:230px;background:var(--card);border-inline-end:1px solid var(--line);
+  padding:18px 12px;display:flex;flex-direction:column;gap:4px;flex-shrink:0
+}
+nav.side button{
+  display:flex;align-items:center;gap:12px;border:0;background:transparent;
+  padding:12px 14px;border-radius:10px;cursor:pointer;font-family:inherit;
+  font-size:15px;font-weight:600;color:var(--muted);text-align:start;transition:.2s;width:100%
+}
+nav.side button:hover{background:var(--paper-2);color:var(--ink)}
+nav.side button.active{background:var(--accent);color:#f4efe6;box-shadow:var(--shadow)}
+nav.side .ico{font-size:18px;width:22px;text-align:center}
+nav.side .spacer{flex:1}
+.storage-chip{
+  font-size:11.5px;padding:10px;border-radius:10px;background:var(--paper-2);
+  color:var(--muted);line-height:1.5;border:1px dashed var(--line)
+}
+.storage-chip b{color:var(--accent-deep)}
+
+main{flex:1;padding:28px 32px;overflow:auto}
+.page{display:none;animation:fade .35s ease}
+.page.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.page-title{font-family:var(--font-display);font-size:26px;font-weight:700;margin-bottom:6px;color:var(--accent-deep)}
+.page-desc{color:var(--muted);margin-bottom:24px;font-size:14.5px}
+
+/* ---- Cards / common ---- */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow);margin-bottom:20px}
+.card h3{font-family:var(--font-display);font-size:17px;color:var(--accent-deep);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+label{display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:6px}
+input,select,textarea{
+  width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:10px;
+  font-family:inherit;font-size:14px;background:var(--paper);color:var(--ink);transition:.2s
+}
+input:focus,select:focus,textarea:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px rgba(47,107,79,.12)}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.row>*{flex:1;min-width:140px}
+.btn{
+  border:0;border-radius:10px;padding:11px 20px;font-family:inherit;font-weight:700;
+  font-size:14px;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:8px
+}
+.btn-primary{background:var(--accent);color:#f4efe6}
+.btn-primary:hover{background:var(--accent-deep)}
+.btn-gold{background:var(--accent-2);color:var(--accent-deep)}
+.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.btn-ghost:hover{background:var(--paper-2)}
+.btn-danger{background:transparent;color:var(--danger);border:1px solid var(--danger)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-sm{padding:7px 13px;font-size:12.5px}
+
+/* ---- Field builder ---- */
+.field-row{display:flex;gap:10px;align-items:flex-end;margin-bottom:10px;padding:12px;background:var(--paper);border-radius:10px;border:1px solid var(--line)}
+.field-row>div{flex:1}
+.field-row .chk{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding-bottom:11px}
+.field-row .chk input{width:auto}
+.field-row .del{flex:0 0 auto}
+
+/* ---- Template cards ---- */
+.tpl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.tpl-card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px;transition:.2s;border-inline-start:4px solid var(--accent-2)}
+.tpl-card:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
+.tpl-card h4{font-family:var(--font-display);font-size:16px;color:var(--accent-deep);margin-bottom:4px}
+.tpl-card .meta{font-size:12px;color:var(--muted);margin-bottom:10px}
+.tag{display:inline-block;background:var(--paper-2);color:var(--muted);font-size:11px;padding:3px 9px;border-radius:20px;margin:2px}
+
+/* ---- Scan / verify split ---- */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.split .pane{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px;min-height:300px}
+.dropzone{
+  border:2px dashed var(--line);border-radius:12px;padding:40px 20px;text-align:center;
+  cursor:pointer;transition:.2s;color:var(--muted)
+}
+.dropzone:hover,.dropzone.drag{border-color:var(--accent);background:rgba(47,107,79,.04);color:var(--accent-deep)}
+.dropzone .big{font-size:40px;margin-bottom:8px}
+.preview-img{max-width:100%;border-radius:10px;border:1px solid var(--line)}
+.scan-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px}
+.badge-free{background:rgba(47,107,79,.15);color:var(--accent-deep)}
+.badge-paid{background:rgba(201,161,74,.2);color:#7a5e1a}
+.kv{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.kv .pair label{font-size:12px;color:var(--muted)}
+
+/* ---- Table ---- */
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:11px 12px;text-align:start;border-bottom:1px solid var(--line)}
+th{font-family:var(--font-display);color:var(--accent-deep);font-size:13px;background:var(--paper)}
+tr:hover td{background:var(--paper)}
+.empty{text-align:center;padding:50px;color:var(--muted)}
+.empty .big{font-size:46px;opacity:.4;margin-bottom:10px}
+
+/* ---- Toast & modal ---- */
+.toast{
+  position:fixed;bottom:24px;inset-inline-end:24px;background:var(--accent-deep);color:#f4efe6;
+  padding:14px 20px;border-radius:12px;box-shadow:var(--shadow);z-index:200;
+  font-weight:600;font-size:14px;transform:translateY(120px);transition:.35s;max-width:340px
+}
+.toast.show{transform:none}
+.toast.err{background:var(--danger)}
+.modal-bg{position:fixed;inset:0;background:rgba(20,36,31,.55);display:none;place-items:center;z-index:150;padding:20px;backdrop-filter:blur(3px)}
+.modal-bg.show{display:grid}
+.modal{background:var(--card);border-radius:16px;padding:26px;max-width:460px;width:100%;box-shadow:var(--shadow);animation:fade .3s}
+.modal h3{font-family:var(--font-display);color:var(--accent-deep);margin-bottom:8px}
+.modal p{color:var(--muted);font-size:14px;margin-bottom:16px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+.progress{height:6px;background:var(--paper-2);border-radius:6px;overflow:hidden;margin-top:10px}
+.progress .bar{height:100%;background:var(--accent);width:0;transition:.3s}
+.muted{color:var(--muted);font-size:13px}
+.spinner{width:18px;height:18px;border:2.5px solid rgba(244,239,230,.4);border-top-color:#f4efe6;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:820px){
+  .shell{flex-direction:column} nav.side{width:auto;flex-direction:row;overflow-x:auto}
+  nav.side .spacer,.storage-chip{display:none} .split{grid-template-columns:1fr} main{padding:18px}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<div class="toast" id="toast"></div>
+<div class="modal-bg" id="modalBg"><div class="modal" id="modalContent"></div></div>
+
+<script>
+/* =====================================================================
+   نظام الأرشفة الذكي — تطبيق ملف واحد
+   البيانات والصور تُخزَّن محلياً (IndexedDB) مع خيار مزامنة لمجلد على القرص.
+   ===================================================================== */
+
+/* ---------------- 1) الترجمات (عربي / ألماني) ---------------- */
+const I18N = {
+  ar:{
+    dir:"rtl", appTitle:"نظام الأرشفة الذكي", appSub:"إدارة وأرشفة المستندات",
+    nav_scan:"مسح وأرشفة", nav_archive:"الأرشيف", nav_templates:"القوالب", nav_settings:"الإعدادات",
+    storage_browser:"التخزين: المتصفح", storage_folder:"المجلد",  storage_none:"لم يُختر مجلد",
+    // scan
+    scan_title:"مسح مستند جديد", scan_desc:"صوّر أو ارفع مستنداً ثم راجع البيانات المستخرجة قبل الحفظ.",
+    pick_template:"اختر القالب", no_templates:"لا توجد قوالب — أنشئ قالباً أولاً من تبويب القوالب.",
+    drop_here:"اسحب الصورة هنا أو اضغط للاختيار", drop_hint:"PNG · JPG · من الكاميرا أو الملفات",
+    use_camera:"التقاط بالكاميرا", original:"المستند الأصلي", extracted:"البيانات المستخرجة",
+    btn_scan:"بدء الاستخراج", scanning:"جارٍ الاستخراج…", confirm_save:"تأكيد وحفظ",
+    scan_first:"ارفع صورة واختر قالباً أولاً", saved_ok:"تم حفظ المستند في الأرشيف",
+    type_free:"مجاني (محلي)", type_paid:"مدفوع (ذكاء بصري)",
+    // archive
+    archive_title:"الأرشيف", archive_desc:"ابحث وصفِّ المستندات المحفوظة على جهازك.",
+    search_ph:"بحث نصّي في البيانات…", filter_all:"كل القوالب", export_excel:"تصدير Excel",
+    col_title:"العنوان", col_template:"القالب", col_type:"النوع", col_date:"التاريخ", col_actions:"إجراءات",
+    no_docs:"لا توجد مستندات بعد", view:"عرض", del:"حذف", confirm_del:"حذف هذا المستند نهائياً؟",
+    deleted:"تم الحذف",
+    // templates
+    tpl_title:"قوالب المستندات", tpl_desc:"عرّف أنواع المستندات وحقولها الديناميكية.",
+    new_tpl:"قالب جديد", tpl_name:"اسم القالب", tpl_name_ph:"مثال: فاتورة شراء",
+    tpl_fields:"الحقول", add_field:"إضافة حقل", field_name:"اسم الحقل", field_type:"النوع",
+    required:"إلزامي", save_tpl:"حفظ القالب", t_string:"نص", t_number:"رقم", t_date:"تاريخ",
+    fields_count:"حقل", edit:"تعديل", tpl_saved:"تم حفظ القالب", tpl_need_name:"أدخل اسم القالب وحقلاً واحداً على الأقل",
+    tpl_deleted:"تم حذف القالب", confirm_del_tpl:"حذف هذا القالب؟",
+    // settings
+    set_title:"الإعدادات", set_desc:"تخزين البيانات ومفتاح الذكاء البصري.",
+    storage_section:"مكان التخزين", storage_explain:"بياناتك محفوظة داخل المتصفح تلقائياً. يمكنك أيضاً ربط مجلد على قرصك لحفظ نسخة من البيانات والصور تتحكم بها بالكامل.",
+    link_folder:"ربط مجلد على الجهاز", folder_linked:"المجلد المربوط:", unsupported_fs:"متصفحك لا يدعم اختيار مجلد مباشرة — استخدم تصدير/استيراد النسخة الاحتياطية بدلاً من ذلك.",
+    backup_section:"نسخة احتياطية", export_backup:"تصدير نسخة احتياطية", import_backup:"استيراد نسخة",
+    ai_section:"الذكاء البصري المدفوع (اختياري)",
+    ai_explain:"القراءة المحلية المجانية تعمل دائماً. للمستندات الصعبة أو الخط اليدوي، يمكنك إضافة مفتاح OpenRouter الخاص بك. يُحفظ على جهازك فقط ولا يُرسل لأحد.",
+    api_key:"مفتاح OpenRouter", api_key_ph:"sk-or-...", save_key:"حفظ المفتاح", key_saved:"تم حفظ المفتاح",
+    key_cleared:"تم مسح المفتاح", clear_key:"مسح", key_set:"مفتاح مُهيّأ ✓", key_unset:"غير مُهيّأ",
+    requires_key:"هذا المستند يحتاج للذكاء البصري المدفوع. أضف مفتاح OpenRouter من الإعدادات.",
+    backup_done:"تم تصدير النسخة", import_done:"تم استيراد النسخة بنجاح",
+    folder_ok:"تم ربط المجلد", confirm:"تأكيد", cancel:"إلغاء", close:"إغلاق",
+    empty_field:"—", processing_img:"تحسين الصورة…", reading:"قراءة محلية…",
+    pw_title:"الإعدادات محمية", pw_prompt:"أدخل كلمة السر للدخول إلى الإعدادات",
+    pw_ph:"كلمة السر", pw_enter:"دخول", pw_wrong:"كلمة السر غير صحيحة",
+    pw_section:"كلمة سر الإعدادات", pw_explain:"تحمي هذه الكلمة الوصول إلى الإعدادات. الافتراضية 123456 ويُنصح بتغييرها.",
+    pw_current:"كلمة السر الحالية", pw_new:"كلمة السر الجديدة", pw_confirm:"تأكيد كلمة السر الجديدة",
+    pw_change:"تغيير كلمة السر", pw_changed:"تم تغيير كلمة السر", pw_mismatch:"كلمتا السر غير متطابقتين",
+    pw_current_wrong:"كلمة السر الحالية غير صحيحة", pw_min:"كلمة السر قصيرة جداً", lock:"قفل الإعدادات"
+  },
+  de:{
+    dir:"ltr", appTitle:"Intelligente Archivierung", appSub:"Dokumentenverwaltung & Archiv",
+    nav_scan:"Scannen", nav_archive:"Archiv", nav_templates:"Vorlagen", nav_settings:"Einstellungen",
+    storage_browser:"Speicher: Browser", storage_folder:"Ordner", storage_none:"Kein Ordner",
+    scan_title:"Neues Dokument scannen", scan_desc:"Fotografieren oder hochladen, dann Daten vor dem Speichern prüfen.",
+    pick_template:"Vorlage wählen", no_templates:"Keine Vorlagen — erstellen Sie zuerst eine unter Vorlagen.",
+    drop_here:"Bild hierher ziehen oder klicken", drop_hint:"PNG · JPG · Kamera oder Datei",
+    use_camera:"Mit Kamera aufnehmen", original:"Originaldokument", extracted:"Extrahierte Daten",
+    btn_scan:"Extraktion starten", scanning:"Extrahiere…", confirm_save:"Bestätigen & Speichern",
+    scan_first:"Bitte zuerst Bild und Vorlage wählen", saved_ok:"Dokument im Archiv gespeichert",
+    type_free:"Kostenlos (lokal)", type_paid:"Kostenpflichtig (Vision-KI)",
+    archive_title:"Archiv", archive_desc:"Durchsuchen und filtern Sie Ihre lokal gespeicherten Dokumente.",
+    search_ph:"Volltextsuche…", filter_all:"Alle Vorlagen", export_excel:"Excel-Export",
+    col_title:"Titel", col_template:"Vorlage", col_type:"Typ", col_date:"Datum", col_actions:"Aktionen",
+    no_docs:"Noch keine Dokumente", view:"Ansehen", del:"Löschen", confirm_del:"Dieses Dokument endgültig löschen?",
+    deleted:"Gelöscht",
+    tpl_title:"Dokumentvorlagen", tpl_desc:"Definieren Sie Dokumenttypen und dynamische Felder.",
+    new_tpl:"Neue Vorlage", tpl_name:"Vorlagenname", tpl_name_ph:"z. B. Eingangsrechnung",
+    tpl_fields:"Felder", add_field:"Feld hinzufügen", field_name:"Feldname", field_type:"Typ",
+    required:"Pflicht", save_tpl:"Vorlage speichern", t_string:"Text", t_number:"Zahl", t_date:"Datum",
+    fields_count:"Felder", edit:"Bearbeiten", tpl_saved:"Vorlage gespeichert", tpl_need_name:"Name und mindestens ein Feld erforderlich",
+    tpl_deleted:"Vorlage gelöscht", confirm_del_tpl:"Diese Vorlage löschen?",
+    set_title:"Einstellungen", set_desc:"Datenspeicher und Vision-KI-Schlüssel.",
+    storage_section:"Speicherort", storage_explain:"Ihre Daten werden automatisch im Browser gespeichert. Sie können zusätzlich einen Ordner auf Ihrer Festplatte verknüpfen, um Daten und Bilder vollständig selbst zu kontrollieren.",
+    link_folder:"Ordner verknüpfen", folder_linked:"Verknüpfter Ordner:", unsupported_fs:"Ihr Browser unterstützt keine Ordnerauswahl — nutzen Sie stattdessen Export/Import.",
+    backup_section:"Sicherung", export_backup:"Sicherung exportieren", import_backup:"Sicherung importieren",
+    ai_section:"Kostenpflichtige Vision-KI (optional)",
+    ai_explain:"Die kostenlose lokale Texterkennung funktioniert immer. Für schwierige Dokumente oder Handschrift können Sie Ihren OpenRouter-Schlüssel hinzufügen. Er wird nur auf Ihrem Gerät gespeichert.",
+    api_key:"OpenRouter-Schlüssel", api_key_ph:"sk-or-...", save_key:"Schlüssel speichern", key_saved:"Schlüssel gespeichert",
+    key_cleared:"Schlüssel entfernt", clear_key:"Entfernen", key_set:"Schlüssel konfiguriert ✓", key_unset:"Nicht konfiguriert",
+    requires_key:"Dieses Dokument benötigt die Vision-KI. Fügen Sie einen OpenRouter-Schlüssel hinzu.",
+    backup_done:"Sicherung exportiert", import_done:"Sicherung erfolgreich importiert",
+    folder_ok:"Ordner verknüpft", confirm:"Bestätigen", cancel:"Abbrechen", close:"Schließen",
+    empty_field:"—", processing_img:"Bild wird optimiert…", reading:"Lokale Texterkennung…",
+    pw_title:"Einstellungen geschützt", pw_prompt:"Passwort eingeben, um die Einstellungen zu öffnen",
+    pw_ph:"Passwort", pw_enter:"Eintreten", pw_wrong:"Falsches Passwort",
+    pw_section:"Passwort für Einstellungen", pw_explain:"Dieses Passwort schützt den Zugriff auf die Einstellungen. Standard ist 123456 — bitte ändern.",
+    pw_current:"Aktuelles Passwort", pw_new:"Neues Passwort", pw_confirm:"Neues Passwort bestätigen",
+    pw_change:"Passwort ändern", pw_changed:"Passwort geändert", pw_mismatch:"Passwörter stimmen nicht überein",
+    pw_current_wrong:"Aktuelles Passwort ist falsch", pw_min:"Passwort zu kurz", lock:"Einstellungen sperren"
+  }
+};
+let LANG = localStorage.getItem("dms_lang") || "ar";
+const t = k => (I18N[LANG][k] ?? k);
+
+/* ---------------- 2) طبقة التخزين ---------------- */
+// IndexedDB: المخزن الأساسي. يحفظ المستندات والقوالب والصور (Blobs).
+const DB_NAME="smart_dms", DB_VER=1;
+let _db=null, _dirHandle=null;
+
+function openDB(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open(DB_NAME,DB_VER);
+    r.onupgradeneeded=e=>{
+      const db=e.target.result;
+      if(!db.objectStoreNames.contains("templates")) db.createObjectStore("templates",{keyPath:"id"});
+      if(!db.objectStoreNames.contains("documents")) db.createObjectStore("documents",{keyPath:"id"});
+      if(!db.objectStoreNames.contains("images")) db.createObjectStore("images",{keyPath:"id"});
+      if(!db.objectStoreNames.contains("meta")) db.createObjectStore("meta",{keyPath:"k"});
+    };
+    r.onsuccess=e=>{_db=e.target.result;res(_db)};
+    r.onerror=e=>rej(e.target.error);
+  });
+}
+function tx(store,mode="readonly"){return _db.transaction(store,mode).objectStore(store);}
+function idbGetAll(store){return new Promise((res,rej)=>{const r=tx(store).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+function idbGet(store,key){return new Promise((res,rej)=>{const r=tx(store).get(key);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+function idbPut(store,val){return new Promise((res,rej)=>{const r=tx(store,"readwrite").put(val);r.onsuccess=()=>res(val);r.onerror=()=>rej(r.error);});}
+function idbDel(store,key){return new Promise((res,rej)=>{const r=tx(store,"readwrite").delete(key);r.onsuccess=()=>res();r.onerror=()=>rej(r.error);});}
+function metaGet(k){return idbGet("meta",k).then(v=>v?v.v:null);}
+function metaSet(k,v){return idbPut("meta",{k,v});}
+
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+
+/* ---- File System Access: مجلد اختياري على القرص ---- */
+const FS_SUPPORTED = "showDirectoryPicker" in window;
+async function linkFolder(){
+  if(!FS_SUPPORTED) throw new Error("unsupported");
+  _dirHandle = await window.showDirectoryPicker({mode:"readwrite"});
+  return _dirHandle.name;
+}
+// كتابة ملف داخل المجلد المربوط (للبيانات والصور)
+async function writeToFolder(filename, blob){
+  if(!_dirHandle) return false;
+  try{
+    const fh=await _dirHandle.getFileHandle(filename,{create:true});
+    const w=await fh.createWritable(); await w.write(blob); await w.close();
+    return true;
+  }catch(e){console.warn("folder write failed",e);return false;}
+}
+// مزامنة كامل قاعدة البيانات كملف JSON + الصور للمجلد
+async function syncToFolder(){
+  if(!_dirHandle) return;
+  const data = await exportData();
+  await writeToFolder("archive-data.json", new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));
+}
+
+/* ---------------- 3) محرك الاستخراج الهجين ---------------- */
+const OCR_CONF_THRESHOLD = 70; // عتبة الثقة للقراءة المجانية
+
+// تحسين الصورة على Canvas (تدرّج رمادي + تباين) — بديل خفيف لـ OpenCV في المتصفح
+function enhanceImage(img){
+  const c=document.createElement("canvas");
+  const scale=Math.min(1, 1600/Math.max(img.width,img.height));
+  c.width=img.width*scale; c.height=img.height*scale;
+  const ctx=c.getContext("2d");
+  ctx.drawImage(img,0,0,c.width,c.height);
+  const d=ctx.getImageData(0,0,c.width,c.height), p=d.data;
+  for(let i=0;i<p.length;i+=4){
+    let g=0.3*p[i]+0.59*p[i+1]+0.11*p[i+2];
+    g=(g-128)*1.35+128;             // رفع التباين
+    g=Math.max(0,Math.min(255,g));
+    p[i]=p[i+1]=p[i+2]=g;
+  }
+  ctx.putImageData(d,0,0);
+  return c;
+}
+
+// قراءة محلية مجانية عبر Tesseract.js (عربي + إنجليزي)
+async function localOCR(canvas, onProgress){
+  const {data}=await Tesseract.recognize(canvas,"ara+eng",{
+    logger:m=>{ if(m.status==="recognizing text" && onProgress) onProgress(m.progress); }
+  });
+  return {text:data.text||"", confidence:data.confidence||0};
+}
+
+// تعيين النص المستخرج على حقول القالب (regex بسيط حسب النوع)
+function mapFields(text, fields){
+  const out={};
+  for(const f of fields){
+    const re=new RegExp(f.name.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\s*[:：\\-]?\\s*(.+)","i");
+    const m=text.match(re);
+    let val=m?m[1].split(/\n/)[0].trim():null;
+    if(val && f.type==="number"){const n=val.match(/-?\d[\d.,]*/);val=n?parseFloat(n[0].replace(/,/g,"")):null;}
+    else if(val && f.type==="date"){const dm=val.match(/\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}/);val=dm?dm[0]:null;}
+    out[f.name]=val||null;
+  }
+  return out;
+}
+
+// المسار المدفوع: OpenRouter Vision (يُستخدم مفتاح المستخدم من جهازه فقط)
+async function visionOCR(dataUrl, fields, apiKey){
+  const schema={}; fields.forEach(f=>schema[f.name]=`${f.type} or null`);
+  const body={
+    model:"openai/gpt-4o",
+    messages:[
+      {role:"system",content:"Extract the exact values from the image and map them to the provided JSON schema. Do not hallucinate. If a value is missing or unreadable, return null. Respond with ONLY a valid JSON object."},
+      {role:"user",content:[
+        {type:"text",text:"Target JSON keys: "+JSON.stringify(schema)},
+        {type:"image_url",image_url:{url:dataUrl}}
+      ]}
+    ],
+    temperature:0, response_format:{type:"json_object"}
+  };
+  const r=await fetch("https://openrouter.ai/api/v1/chat/completions",{
+    method:"POST",
+    headers:{"Authorization":"Bearer "+apiKey,"Content-Type":"application/json"},
+    body:JSON.stringify(body)
+  });
+  if(!r.ok) throw new Error("openrouter "+r.status);
+  const j=await r.json();
+  let c=j.choices[0].message.content.trim().replace(/^```json?|```$/g,"").trim();
+  const parsed=JSON.parse(c); const out={};
+  fields.forEach(f=>out[f.name]=parsed[f.name]??null);
+  return out;
+}
+
+/* ---------------- 4) التصدير / النسخ الاحتياطي ---------------- */
+async function exportData(){
+  const templates=await idbGetAll("templates");
+  const documents=await idbGetAll("documents");
+  const images=await idbGetAll("images"); // {id, dataUrl}
+  return {version:1, exportedAt:new Date().toISOString(), templates, documents, images};
+}
+async function importData(obj){
+  for(const tpl of obj.templates||[]) await idbPut("templates",tpl);
+  for(const doc of obj.documents||[]) await idbPut("documents",doc);
+  for(const im of obj.images||[]) await idbPut("images",im);
+}
+function downloadBlob(blob,name){
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+// تصدير الأرشيف (المفلتر) إلى Excel — صيغة Excel XML بسيطة تفتح مباشرة
+function exportExcel(docs, templates){
+  const tplName=id=>(templates.find(x=>x.id===id)||{}).name||"";
+  let rows=`<tr><th>${t('col_title')}</th><th>${t('col_template')}</th><th>${t('col_type')}</th><th>${t('col_date')}</th></tr>`;
+  docs.forEach(d=>{
+    rows+=`<tr><td>${esc(d.title||"")}</td><td>${esc(tplName(d.templateId))}</td><td>${d.scanType==='Paid'?t('type_paid'):t('type_free')}</td><td>${new Date(d.createdAt).toLocaleDateString()}</td></tr>`;
+  });
+  const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table>${rows}</table></body></html>`;
+  downloadBlob(new Blob(['\ufeff'+html],{type:"application/vnd.ms-excel"}),"archive.xls");
+}
+
+/* ---------------- 5) أدوات واجهة ---------------- */
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let toastTimer;
+function toast(msg,err=false){
+  const el=document.getElementById("toast");
+  el.textContent=msg; el.className="toast show"+(err?" err":"");
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.className="toast",3000);
+}
+function modal(html){
+  document.getElementById("modalContent").innerHTML=html;
+  document.getElementById("modalBg").classList.add("show");
+}
+function closeModal(){document.getElementById("modalBg").classList.remove("show");}
+document.getElementById("modalBg").addEventListener("click",e=>{if(e.target.id==="modalBg")closeModal();});
+
+/* ---------------- 6) الحالة والعرض الرئيسي ---------------- */
+const STATE={page:"scan", scan:{img:null,dataUrl:null,result:null,templateId:null}, editTpl:null, filter:{q:"",tpl:""}, settingsUnlocked:false};
+
+/* كلمة سر الإعدادات (افتراضي 123456) — تُخزَّن في meta وتُزامَن مع المجلد */
+async function getSettingsPassword(){
+  const v=await metaGet("settings_password");
+  return v||"123456";
+}
+
+function setLang(l){
+  LANG=l; localStorage.setItem("dms_lang",l);
+  document.documentElement.lang=l; document.documentElement.dir=I18N[l].dir;
+  render();
+}
+
+function shell(){
+  const nav=[["scan","🔍"],["archive","🗄️"],["templates","📋"],["settings","⚙️"]];
+  return `
+  <header>
+    <div class="brand">
+      <div class="logo">د</div>
+      <div><h1>${t('appTitle')}</h1><div class="sub">${t('appSub')}</div>
+        <div class="muted" style="font-size:13px;margin-top:2px">${LANG==="de"?"Einrichtung und Programmierung":"إعداد وبرمجة"}<br>Anas Al Rajeh</div>
+      </div>
+    </div>
+    <div class="head-actions">
+      <div class="lang-toggle">
+        <button class="${LANG==='ar'?'active':''}" onclick="setLang('ar')">عربي</button>
+        <button class="${LANG==='de'?'active':''}" onclick="setLang('de')">Deutsch</button>
+      </div>
+    </div>
+  </header>
+  <div class="shell">
+    <nav class="side">
+      ${nav.map(([k,ic])=>`<button class="${STATE.page===k?'active':''}" onclick="go('${k}')"><span class="ico">${ic}</span>${t('nav_'+k)}</button>`).join("")}
+      <div class="spacer"></div>
+      <div class="storage-chip">
+        <b>${t('storage_browser')}</b> ✓<br>
+        ${t('storage_folder')}: ${_dirHandle?('<b>'+esc(_dirHandle.name)+'</b>'):t('storage_none')}
+      </div>
+    </nav>
+    <main id="main"></main>
+  </div>`;
+}
+
+async function render(){
+  document.getElementById("app").innerHTML=shell();
+  const m=document.getElementById("main");
+  if(STATE.page==="scan") await renderScan(m);
+  else if(STATE.page==="archive") await renderArchive(m);
+  else if(STATE.page==="templates") await renderTemplates(m);
+  else if(STATE.page==="settings") await (STATE.settingsUnlocked?renderSettings(m):renderPasswordGate(m));
+}
+function go(p){
+  if(p==="settings"&&!STATE.settingsUnlocked){STATE.page="settings";render();return;}
+  STATE.page=p;render();
+}
+
+/* ----- بوابة كلمة السر للإعدادات ----- */
+async function renderPasswordGate(m){
+  m.innerHTML=`
+    <div class="page active">
+      <div class="page-title">${t('set_title')}</div>
+      <div style="max-width:420px;margin-top:30px">
+        <div class="card" style="text-align:center">
+          <div style="font-size:48px;margin-bottom:8px">🔒</div>
+          <h3 style="justify-content:center">${t('pw_title')}</h3>
+          <p class="muted" style="margin-bottom:18px">${t('pw_prompt')}</p>
+          <input id="pwInput" type="password" placeholder="${t('pw_ph')}" style="text-align:center;letter-spacing:3px" onkeydown="if(event.key==='Enter')tryUnlock()">
+          <div id="pwErr" style="color:var(--danger);font-size:13px;margin-top:8px;min-height:18px"></div>
+          <button class="btn btn-primary" style="width:100%;margin-top:6px" onclick="tryUnlock()">🔓 ${t('pw_enter')}</button>
+        </div>
+      </div>
+    </div>`;
+  setTimeout(()=>{const i=document.getElementById("pwInput");if(i)i.focus();},50);
+}
+async function tryUnlock(){
+  const val=document.getElementById("pwInput").value;
+  const real=await getSettingsPassword();
+  if(val===real){STATE.settingsUnlocked=true;render();}
+  else{document.getElementById("pwErr").textContent=t('pw_wrong');document.getElementById("pwInput").value="";}
+}
+
+/* ----- صفحة المسح ----- */
+async function renderScan(m){
+  const tpls=await idbGetAll("templates");
+  const s=STATE.scan;
+  m.innerHTML=`
+    <div class="page active">
+      <div class="page-title">${t('scan_title')}</div>
+      <div class="page-desc">${t('scan_desc')}</div>
+      ${tpls.length===0?`<div class="card"><div class="muted">${t('no_templates')}</div></div>`:`
+      <div class="card">
+        <div class="row" style="align-items:flex-end">
+          <div style="flex:2">
+            <label>${t('pick_template')}</label>
+            <select id="scanTpl">${tpls.map(tp=>`<option value="${tp.id}" ${s.templateId===tp.id?'selected':''}>${esc(tp.name)}</option>`).join("")}</select>
+          </div>
+        </div>
+      </div>
+      <div class="split">
+        <div class="pane">
+          <h3>📄 ${t('original')}</h3>
+          ${s.dataUrl?`<img src="${s.dataUrl}" class="preview-img">`:`
+            <div class="dropzone" id="dz">
+              <div class="big">📷</div>
+              <div>${t('drop_here')}</div>
+              <div class="muted" style="margin-top:6px">${t('drop_hint')}</div>
+            </div>`}
+          <input type="file" id="fileIn" accept="image/*" capture="environment" style="display:none">
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('fileIn').click()">📁 ${t('drop_here')}</button>
+            ${s.dataUrl?`<button class="btn btn-primary btn-sm" id="doScan">${t('btn_scan')}</button>`:''}
+          </div>
+          <div id="scanProg"></div>
+        </div>
+        <div class="pane">
+          <h3>✨ ${t('extracted')}</h3>
+          <div id="resultArea">${s.result?renderResultForm(tpls.find(x=>x.id===s.templateId)):`<div class="muted">${t('scan_first')}</div>`}</div>
+        </div>
+      </div>`}
+    </div>`;
+
+  const fileIn=document.getElementById("fileIn");
+  if(fileIn){
+    fileIn.onchange=e=>{const f=e.target.files[0];if(f)loadImage(f);};
+    const dz=document.getElementById("dz");
+    if(dz){
+      dz.onclick=()=>fileIn.click();
+      dz.ondragover=e=>{e.preventDefault();dz.classList.add("drag");};
+      dz.ondragleave=()=>dz.classList.remove("drag");
+      dz.ondrop=e=>{e.preventDefault();dz.classList.remove("drag");const f=e.dataTransfer.files[0];if(f)loadImage(f);};
+    }
+  }
+  const tplSel=document.getElementById("scanTpl");
+  if(tplSel){tplSel.value=s.templateId||tpls[0].id;s.templateId=tplSel.value;tplSel.onchange=()=>s.templateId=tplSel.value;}
+  const btn=document.getElementById("doScan");
+  if(btn) btn.onclick=runScan;
+}
+
+function loadImage(file){
+  const r=new FileReader();
+  r.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{STATE.scan.img=img;STATE.scan.dataUrl=e.target.result;STATE.scan.result=null;render();};
+    img.src=e.target.result;
+  };
+  r.readAsDataURL(file);
+}
+
+async function runScan(){
+  const s=STATE.scan;
+  if(!s.img||!s.templateId){toast(t('scan_first'),true);return;}
+  const tpls=await idbGetAll("templates");
+  const tpl=tpls.find(x=>x.id===s.templateId);
+  const prog=document.getElementById("scanProg");
+  const btn=document.getElementById("doScan");
+  btn.disabled=true; btn.innerHTML=`<span class="spinner"></span> ${t('scanning')}`;
+  prog.innerHTML=`<div class="muted" style="margin-top:8px">${t('processing_img')}</div><div class="progress"><div class="bar" id="bar"></div></div>`;
+
+  try{
+    const canvas=enhanceImage(s.img);
+    document.getElementById("bar").style.width="20%";
+    prog.querySelector(".muted").textContent=t('reading');
+    const {text,confidence}=await localOCR(canvas,p=>{document.getElementById("bar").style.width=(20+p*60)+"%";});
+    document.getElementById("bar").style.width="85%";
+
+    if(confidence>=OCR_CONF_THRESHOLD){
+      s.result={scanType:"Free",data:mapFields(text,tpl.fields),conf:Math.round(confidence)};
+    }else{
+      // الرجوع للمدفوع
+      const key=await metaGet("openrouter_key");
+      if(!key){
+        document.getElementById("bar").style.width="100%";
+        s.result={requiresKey:true};
+      }else{
+        prog.querySelector(".muted").textContent=t('scanning');
+        const data=await visionOCR(s.dataUrl,tpl.fields,key);
+        s.result={scanType:"Paid",data};
+      }
+    }
+  }catch(err){
+    console.error(err);
+    const key=await metaGet("openrouter_key");
+    if(!key){s.result={requiresKey:true};}
+    else{toast("OCR error: "+err.message,true);}
+  }
+  render();
+}
+
+function renderResultForm(tpl){
+  const r=STATE.scan.result;
+  if(r.requiresKey) return `<div class="card" style="background:rgba(201,161,74,.12);border-color:var(--accent-2)">
+    <div style="font-weight:700;color:#7a5e1a;margin-bottom:6px">⚠️ ${t('type_paid')}</div>
+    <div class="muted">${t('requires_key')}</div>
+    <button class="btn btn-gold btn-sm" style="margin-top:12px" onclick="go('settings')">${t('nav_settings')}</button>
+  </div>`;
+  const badge=r.scanType==="Paid"
+    ?`<span class="scan-badge badge-paid">💎 ${t('type_paid')}</span>`
+    :`<span class="scan-badge badge-free">🆓 ${t('type_free')} · ${r.conf}%</span>`;
+  return `${badge}
+    <div class="kv">
+    ${tpl.fields.map((f,i)=>`<div class="pair">
+      <label>${esc(f.name)} ${f.required?'<span style="color:var(--danger)">*</span>':''} <span class="muted">(${t('t_'+f.type)})</span></label>
+      <input data-field="${esc(f.name)}" value="${esc(r.data[f.name]??'')}">
+    </div>`).join("")}
+    </div>
+    <button class="btn btn-primary" style="margin-top:16px;width:100%" onclick="saveDoc()">💾 ${t('confirm_save')}</button>`;
+}
+
+async function saveDoc(){
+  const s=STATE.scan;
+  const tpls=await idbGetAll("templates");
+  const tpl=tpls.find(x=>x.id===s.templateId);
+  const data={};
+  document.querySelectorAll("[data-field]").forEach(inp=>{data[inp.dataset.field]=inp.value||null;});
+  const id=uid();
+  // حفظ الصورة منفصلة
+  await idbPut("images",{id,dataUrl:s.dataUrl});
+  const doc={id,templateId:tpl.id,title:data[tpl.fields[0].name]||tpl.name,
+    scanType:s.result.scanType,data,createdAt:new Date().toISOString(),imageId:id};
+  await idbPut("documents",doc);
+  // مزامنة المجلد إن وُجد + حفظ نسخة الصورة فيه
+  if(_dirHandle){
+    const blob=await (await fetch(s.dataUrl)).blob();
+    await writeToFolder("images/"+id+".png",blob).catch(()=>{});
+    await syncToFolder();
+  }
+  toast(t('saved_ok'));
+  STATE.scan={img:null,dataUrl:null,result:null,templateId:s.templateId};
+  go('archive');
+}
+
+/* ----- صفحة الأرشيف ----- */
+async function renderArchive(m){
+  const tpls=await idbGetAll("templates");
+  let docs=await idbGetAll("documents");
+  docs.sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+  const f=STATE.filter;
+  let view=docs.filter(d=>{
+    if(f.tpl && d.templateId!==f.tpl) return false;
+    if(f.q){const blob=JSON.stringify(d.data).toLowerCase()+" "+(d.title||"").toLowerCase();if(!blob.includes(f.q.toLowerCase()))return false;}
+    return true;
+  });
+  const tplName=id=>(tpls.find(x=>x.id===id)||{}).name||"—";
+  m.innerHTML=`
+    <div class="page active">
+      <div class="page-title">${t('archive_title')}</div>
+      <div class="page-desc">${t('archive_desc')}</div>
+      <div class="card">
+        <div class="row" style="align-items:flex-end">
+          <div style="flex:2"><label>🔎</label><input id="fq" placeholder="${t('search_ph')}" value="${esc(f.q)}"></div>
+          <div><label>${t('col_template')}</label>
+            <select id="ftpl"><option value="">${t('filter_all')}</option>
+            ${tpls.map(tp=>`<option value="${tp.id}" ${f.tpl===tp.id?'selected':''}>${esc(tp.name)}</option>`).join("")}</select></div>
+          <div style="flex:0"><label>&nbsp;</label><button class="btn btn-gold" onclick="doExcel()">📊 ${t('export_excel')}</button></div>
+        </div>
+      </div>
+      <div class="card">
+        ${view.length===0?`<div class="empty"><div class="big">🗄️</div>${t('no_docs')}</div>`:`
+        <table><thead><tr>
+          <th>${t('col_title')}</th><th>${t('col_template')}</th><th>${t('col_type')}</th><th>${t('col_date')}</th><th>${t('col_actions')}</th>
+        </tr></thead><tbody>
+        ${view.map(d=>`<tr>
+          <td><b>${esc(d.title||'—')}</b></td>
+          <td>${esc(tplName(d.templateId))}</td>
+          <td>${d.scanType==='Paid'?`<span class="scan-badge badge-paid">💎 ${t('type_paid')}</span>`:`<span class="scan-badge badge-free">🆓 ${t('type_free')}</span>`}</td>
+          <td class="muted">${new Date(d.createdAt).toLocaleDateString()}</td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="viewDoc('${d.id}')">${t('view')}</button>
+            <button class="btn btn-danger btn-sm" onclick="delDoc('${d.id}')">${t('del')}</button>
+          </td>
+        </tr>`).join("")}
+        </tbody></table>`}
+      </div>
+    </div>`;
+  const fq=document.getElementById("fq");
+  fq.oninput=()=>{f.q=fq.value;clearTimeout(fq._t);fq._t=setTimeout(()=>renderArchive(m),250);};
+  document.getElementById("ftpl").onchange=e=>{f.tpl=e.target.value;renderArchive(m);};
+}
+async function doExcel(){
+  const tpls=await idbGetAll("templates");let docs=await idbGetAll("documents");
+  const f=STATE.filter;
+  docs=docs.filter(d=>(!f.tpl||d.templateId===f.tpl)&&(!f.q||JSON.stringify(d.data).toLowerCase().includes(f.q.toLowerCase())));
+  exportExcel(docs,tpls);
+}
+async function viewDoc(id){
+  const d=await idbGet("documents",id);const im=await idbGet("images",d.imageId);
+  const tpls=await idbGetAll("templates");const tpl=tpls.find(x=>x.id===d.templateId);
+  modal(`<h3>${esc(d.title||'')}</h3>
+    <div class="split" style="grid-template-columns:1fr 1fr;gap:14px">
+      <div>${im?`<img src="${im.dataUrl}" class="preview-img">`:''}</div>
+      <div class="kv">${(tpl?tpl.fields:Object.keys(d.data).map(k=>({name:k}))).map(fl=>`
+        <div class="pair"><label>${esc(fl.name)}</label><div style="font-weight:600">${esc(d.data[fl.name]??t('empty_field'))}</div></div>`).join("")}</div>
+    </div>
+    <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">${t('close')}</button></div>`);
+}
+function delDoc(id){
+  modal(`<h3>${t('del')}</h3><p>${t('confirm_del')}</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">${t('cancel')}</button>
+      <button class="btn btn-danger" onclick="reallyDelDoc('${id}')">${t('confirm')}</button>
+    </div>`);
+}
+async function reallyDelDoc(id){
+  const d=await idbGet("documents",id);
+  await idbDel("documents",id); if(d&&d.imageId)await idbDel("images",d.imageId);
+  if(_dirHandle)await syncToFolder();
+  closeModal();toast(t('deleted'));render();
+}
+
+/* ----- صفحة القوالب ----- */
+async function renderTemplates(m){
+  const tpls=await idbGetAll("templates");
+  m.innerHTML=`
+    <div class="page active">
+      <div class="page-title">${t('tpl_title')}</div>
+      <div class="page-desc">${t('tpl_desc')}</div>
+      <button class="btn btn-primary" style="margin-bottom:18px" onclick="editTemplate()">➕ ${t('new_tpl')}</button>
+      ${tpls.length===0?`<div class="card"><div class="empty"><div class="big">📋</div>${t('no_templates')}</div></div>`:`
+      <div class="tpl-grid">
+        ${tpls.map(tp=>`<div class="tpl-card">
+          <h4>${esc(tp.name)}</h4>
+          <div class="meta">${tp.fields.length} ${t('fields_count')}</div>
+          <div>${tp.fields.slice(0,5).map(fl=>`<span class="tag">${esc(fl.name)}</span>`).join("")}</div>
+          <div style="margin-top:12px;display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" onclick="editTemplate('${tp.id}')">${t('edit')}</button>
+            <button class="btn btn-danger btn-sm" onclick="delTpl('${tp.id}')">${t('del')}</button>
+          </div>
+        </div>`).join("")}
+      </div>`}
+    </div>`;
+}
+function editTemplate(id){
+  STATE.editTpl=id?null:{name:"",fields:[{name:"",type:"string",required:false}]};
+  if(id){idbGet("templates",id).then(tp=>{STATE.editTpl=JSON.parse(JSON.stringify(tp));showTplModal();});}
+  else showTplModal();
+}
+function showTplModal(){
+  const e=STATE.editTpl;
+  modal(`<h3>${e.id?t('edit'):t('new_tpl')}</h3>
+    <label>${t('tpl_name')}</label>
+    <input id="tplName" placeholder="${t('tpl_name_ph')}" value="${esc(e.name)}">
+    <label style="margin-top:14px">${t('tpl_fields')}</label>
+    <div id="fieldList">${e.fields.map((f,i)=>fieldRow(f,i)).join("")}</div>
+    <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addField()">➕ ${t('add_field')}</button>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">${t('cancel')}</button>
+      <button class="btn btn-primary" onclick="saveTpl()">${t('save_tpl')}</button>
+    </div>`);
+}
+function fieldRow(f,i){
+  return `<div class="field-row" data-i="${i}">
+    <div><label>${t('field_name')}</label><input class="f-name" value="${esc(f.name)}"></div>
+    <div style="flex:0 0 110px"><label>${t('field_type')}</label>
+      <select class="f-type">
+        <option value="string" ${f.type==='string'?'selected':''}>${t('t_string')}</option>
+        <option value="number" ${f.type==='number'?'selected':''}>${t('t_number')}</option>
+        <option value="date" ${f.type==='date'?'selected':''}>${t('t_date')}</option>
+      </select></div>
+    <div class="chk"><input type="checkbox" class="f-req" ${f.required?'checked':''}><label style="margin:0">${t('required')}</label></div>
+    <div class="del"><button class="btn btn-danger btn-sm" onclick="rmField(${i})">✕</button></div>
+  </div>`;
+}
+function collectFields(){
+  const fields=[];
+  document.querySelectorAll(".field-row").forEach(r=>{
+    fields.push({name:r.querySelector(".f-name").value.trim(),type:r.querySelector(".f-type").value,required:r.querySelector(".f-req").checked});
+  });
+  return fields;
+}
+function addField(){STATE.editTpl.name=document.getElementById("tplName").value;STATE.editTpl.fields=collectFields();STATE.editTpl.fields.push({name:"",type:"string",required:false});showTplModal();}
+function rmField(i){STATE.editTpl.name=document.getElementById("tplName").value;STATE.editTpl.fields=collectFields();STATE.editTpl.fields.splice(i,1);if(!STATE.editTpl.fields.length)STATE.editTpl.fields.push({name:"",type:"string",required:false});showTplModal();}
+async function saveTpl(){
+  const e=STATE.editTpl;
+  e.name=document.getElementById("tplName").value.trim();
+  e.fields=collectFields().filter(f=>f.name);
+  if(!e.name||!e.fields.length){toast(t('tpl_need_name'),true);return;}
+  if(!e.id)e.id=uid();
+  await idbPut("templates",e);
+  if(_dirHandle)await syncToFolder();
+  closeModal();toast(t('tpl_saved'));render();
+}
+function delTpl(id){
+  modal(`<h3>${t('del')}</h3><p>${t('confirm_del_tpl')}</p>
+    <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">${t('cancel')}</button>
+    <button class="btn btn-danger" onclick="reallyDelTpl('${id}')">${t('confirm')}</button></div>`);
+}
+async function reallyDelTpl(id){await idbDel("templates",id);if(_dirHandle)await syncToFolder();closeModal();toast(t('tpl_deleted'));render();}
+
+/* ----- صفحة الإعدادات ----- */
+async function renderSettings(m){
+  const key=await metaGet("openrouter_key");
+  m.innerHTML=`
+    <div class="page active">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+        <div>
+          <div class="page-title">${t('set_title')}</div>
+          <div class="page-desc">${t('set_desc')}</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="lockSettings()">🔒 ${t('lock')}</button>
+      </div>
+      <div class="card">
+        <h3>💾 ${t('storage_section')}</h3>
+        <p class="muted">${t('storage_explain')}</p>
+        ${FS_SUPPORTED?`
+          <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="doLinkFolder()">📂 ${t('link_folder')}</button>
+            ${_dirHandle?`<span class="muted">${t('folder_linked')} <b>${esc(_dirHandle.name)}</b></span>`:''}
+          </div>`:`<div class="muted" style="margin-top:10px">⚠️ ${t('unsupported_fs')}</div>`}
+      </div>
+
+      <div class="card">
+        <h3>🗂️ ${t('backup_section')}</h3>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-ghost" onclick="doExportBackup()">⬇️ ${t('export_backup')}</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('impFile').click()">⬆️ ${t('import_backup')}</button>
+          <input type="file" id="impFile" accept=".json" style="display:none">
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>💎 ${t('ai_section')}</h3>
+        <p class="muted">${t('ai_explain')}</p>
+        <div style="margin-top:12px">
+          <span class="scan-badge ${key?'badge-free':'badge-paid'}">${key?t('key_set'):t('key_unset')}</span>
+        </div>
+        <div class="row" style="margin-top:12px;align-items:flex-end">
+          <div style="flex:3"><label>${t('api_key')}</label><input id="apiKey" type="password" placeholder="${t('api_key_ph')}"></div>
+          <div style="flex:0"><label>&nbsp;</label><button class="btn btn-primary" onclick="saveKey()">${t('save_key')}</button></div>
+          ${key?`<div style="flex:0"><label>&nbsp;</label><button class="btn btn-danger" onclick="clearKey()">${t('clear_key')}</button></div>`:''}
+        </div>
+      </div>
+      <div class="card">
+        <h3>🔑 ${t('pw_section')}</h3>
+        <p class="muted">${t('pw_explain')}</p>
+        <div style="max-width:380px;margin-top:12px">
+          <label>${t('pw_current')}</label>
+          <input id="pwCur" type="password" placeholder="${t('pw_ph')}">
+          <label style="margin-top:10px">${t('pw_new')}</label>
+          <input id="pwNew" type="password">
+          <label style="margin-top:10px">${t('pw_confirm')}</label>
+          <input id="pwNew2" type="password">
+          <button class="btn btn-primary" style="margin-top:14px" onclick="changePassword()">${t('pw_change')}</button>
+        </div>
+      </div>
+    </div>`;
+  imp.onchange=async e=>{
+    const f=e.target.files[0];if(!f)return;
+    try{const obj=JSON.parse(await f.text());await importData(obj);if(_dirHandle)await syncToFolder();toast(t('import_done'));render();}
+    catch(err){toast("Import error",true);}
+  };
+}
+async function doLinkFolder(){
+  try{const name=await linkFolder();await syncToFolder();toast(t('folder_ok')+": "+name);render();}
+  catch(e){if(e.name!=="AbortError")toast("Folder error",true);}
+}
+async function doExportBackup(){
+  const data=await exportData();
+  downloadBlob(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),"smart-dms-backup.json");
+  toast(t('backup_done'));
+}
+async function saveKey(){
+  const v=document.getElementById("apiKey").value.trim();
+  if(!v)return; await metaSet("openrouter_key",v); toast(t('key_saved')); render();
+}
+async function clearKey(){await idbDel("meta","openrouter_key");toast(t('key_cleared'));render();}
+
+function lockSettings(){STATE.settingsUnlocked=false;go('scan');}
+
+async function changePassword(){
+  const cur=document.getElementById("pwCur").value;
+  const n1=document.getElementById("pwNew").value;
+  const n2=document.getElementById("pwNew2").value;
+  const real=await getSettingsPassword();
+  if(cur!==real){toast(t('pw_current_wrong'),true);return;}
+  if(n1.length<4){toast(t('pw_min'),true);return;}
+  if(n1!==n2){toast(t('pw_mismatch'),true);return;}
+  await metaSet("settings_password",n1);
+  if(_dirHandle)await syncToFolder();
+  toast(t('pw_changed'));render();
+}
+
+/* ---------------- 7) التهيئة ---------------- */
+(async function init(){
+  await openDB();
+  document.documentElement.lang=LANG; document.documentElement.dir=I18N[LANG].dir;
+  // إنشاء قالب فاتورة افتراضي عند أول تشغيل
+  const existing=await idbGetAll("templates");
+  if(existing.length===0){
+    await idbPut("templates",{id:uid(),name:LANG==='ar'?"فاتورة":"Rechnung",
+      fields:[
+        {name:LANG==='ar'?"رقم الفاتورة":"Rechnungsnummer",type:"string",required:true},
+        {name:LANG==='ar'?"المورّد":"Lieferant",type:"string",required:false},
+        {name:LANG==='ar'?"المبلغ":"Betrag",type:"number",required:true},
+        {name:LANG==='ar'?"التاريخ":"Datum",type:"date",required:false}
+      ]});
+  }
+  render();
+})();
+</script>
+</body>
+</html>
