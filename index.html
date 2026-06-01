@@ -193,7 +193,7 @@ const I18N = {
     pick_template:"اختر القالب", no_templates:"لا توجد قوالب — أنشئ قالباً أولاً من تبويب القوالب.",
     drop_here:"اسحب الصورة هنا أو اضغط للاختيار", drop_hint:"PNG · JPG · من الكاميرا أو الملفات",
     use_camera:"التقاط بالكاميرا", original:"المستند الأصلي", extracted:"البيانات المستخرجة",
-    btn_scan:"بدء الاستخراج", scanning:"جارٍ الاستخراج…", scanning_ollama:"جارٍ الاستخراج محلياً عبر Ollama…", confirm_save:"تأكيد وحفظ",
+    btn_scan:"بدء الاستخراج", scanning:"جارٍ الاستخراج…", confirm_save:"تأكيد وحفظ",
     confirm_save_all:"تأكيد وحفظ كل السجلات", rows_found:"السجلات المكتشفة", add_row:"إضافة سجل",
     no_rows:"لم يتم اكتشاف أي بيانات", cost_label:"التكلفة", cents:"سنت", col_cost:"التكلفة",
     scan_first:"ارفع صورة واختر قالباً أولاً", saved_ok:"تم حفظ السجلات في الأرشيف",
@@ -220,15 +220,8 @@ const I18N = {
     storage_section:"مكان التخزين", storage_explain:"بياناتك محفوظة داخل المتصفح تلقائياً. يمكنك أيضاً ربط مجلد على قرصك لحفظ نسخة من البيانات والصور تتحكم بها بالكامل.",
     link_folder:"ربط مجلد على الجهاز", folder_linked:"المجلد المربوط:", unsupported_fs:"متصفحك لا يدعم اختيار مجلد مباشرة — استخدم تصدير/استيراد النسخة الاحتياطية بدلاً من ذلك.",
     backup_section:"نسخة احتياطية", export_backup:"تصدير نسخة احتياطية", import_backup:"استيراد نسخة",
-    ai_section:"محرّك الذكاء البصري (اختياري)",
-    ai_explain:"القراءة المحلية المجانية (Tesseract) تعمل دائماً. للمستندات الصعبة أو الخط اليدوي، اختر محرّكاً للرؤية: إمّا OpenRouter (سحابي، يحتاج مفتاحاً ورصيداً) أو Ollama (نموذج محلي على جهازك، مجاني تماماً).",
-    provider_label:"محرّك الرؤية", prov_openrouter:"OpenRouter (سحابي مدفوع)", prov_ollama:"Ollama (محلي مجاني)",
-    type_local:"محلي (Ollama)",
-    ollama_url_label:"عنوان خادم Ollama", ollama_model_label:"اسم النموذج",
-    ollama_test:"اختبار الاتصال", ollama_ok:"متصل", ollama_fail:"تعذّر الاتصال", ollama_models_count:"نموذج",
-    ollama_help:"شغّل Ollama على جهازك ثم اسحب نموذج رؤية. الأنسب للجداول والفواتير هو qwen2.5vl. للأجهزة القوية: qwen2.5vl:7b وللأضعف: qwen2.5vl:3b.\nمهم: لتمكين الاتصال من المتصفح اضبط متغيّر OLLAMA_ORIGINS قبل تشغيل Ollama.",
-    ollama_err_title:"تعذّر الوصول إلى Ollama",
-    ollama_err_desc:"تأكد أن Ollama يعمل، وأن النموذج مُحمَّل (ollama pull qwen2.5vl:7b)، وأن OLLAMA_ORIGINS مضبوط على * قبل تشغيل Ollama.\nنصيحة: شغّل التطبيق عبر الخادم المحلي (start-windows / start-mac) لا بالنقر المزدوج، حتى يعمل الاتصال وربط المجلد.",
+    ai_section:"الذكاء البصري المدفوع (اختياري)",
+    ai_explain:"القراءة المحلية المجانية تعمل دائماً. للمستندات الصعبة أو الخط اليدوي، يمكنك إضافة مفتاح OpenRouter الخاص بك. يُحفظ على جهازك فقط ولا يُرسل لأحد.",
     api_key:"مفتاح OpenRouter", api_key_ph:"sk-or-...", save_key:"حفظ المفتاح", key_saved:"تم حفظ المفتاح",
     key_cleared:"تم مسح المفتاح", clear_key:"مسح", key_set:"مفتاح مُهيّأ ✓", key_unset:"غير مُهيّأ",
     requires_key:"هذا المستند يحتاج للذكاء البصري المدفوع. أضف مفتاح OpenRouter من الإعدادات.",
@@ -250,7 +243,7 @@ const I18N = {
     pick_template:"Vorlage wählen", no_templates:"Keine Vorlagen — erstellen Sie zuerst eine unter Vorlagen.",
     drop_here:"Bild hierher ziehen oder klicken", drop_hint:"PNG · JPG · Kamera oder Datei",
     use_camera:"Mit Kamera aufnehmen", original:"Originaldokument", extracted:"Extrahierte Daten",
-    btn_scan:"Extraktion starten", scanning:"Extrahiere…", scanning_ollama:"Lokale Extraktion über Ollama…", confirm_save:"Bestätigen & Speichern",
+    btn_scan:"Extraktion starten", scanning:"Extrahiere…", confirm_save:"Bestätigen & Speichern",
     confirm_save_all:"Alle Datensätze speichern", rows_found:"Erkannte Datensätze", add_row:"Datensatz hinzufügen",
     no_rows:"Keine Daten erkannt", cost_label:"Kosten", cents:"Cent", col_cost:"Kosten",
     scan_first:"Bitte zuerst Bild und Vorlage wählen", saved_ok:"Datensätze im Archiv gespeichert",
@@ -274,15 +267,8 @@ const I18N = {
     storage_section:"Speicherort", storage_explain:"Ihre Daten werden automatisch im Browser gespeichert. Sie können zusätzlich einen Ordner auf Ihrer Festplatte verknüpfen, um Daten und Bilder vollständig selbst zu kontrollieren.",
     link_folder:"Ordner verknüpfen", folder_linked:"Verknüpfter Ordner:", unsupported_fs:"Ihr Browser unterstützt keine Ordnerauswahl — nutzen Sie stattdessen Export/Import.",
     backup_section:"Sicherung", export_backup:"Sicherung exportieren", import_backup:"Sicherung importieren",
-    ai_section:"Vision-Engine (optional)",
-    ai_explain:"Die kostenlose lokale Texterkennung (Tesseract) funktioniert immer. Für schwierige Dokumente oder Handschrift wählen Sie eine Vision-Engine: entweder OpenRouter (Cloud, benötigt Schlüssel und Guthaben) oder Ollama (lokales Modell auf Ihrem Gerät, völlig kostenlos).",
-    provider_label:"Vision-Engine", prov_openrouter:"OpenRouter (Cloud, kostenpflichtig)", prov_ollama:"Ollama (lokal, kostenlos)",
-    type_local:"Lokal (Ollama)",
-    ollama_url_label:"Ollama-Server-Adresse", ollama_model_label:"Modellname",
-    ollama_test:"Verbindung testen", ollama_ok:"Verbunden", ollama_fail:"Verbindung fehlgeschlagen", ollama_models_count:"Modelle",
-    ollama_help:"Starten Sie Ollama auf Ihrem Gerät und laden Sie ein Vision-Modell. Für Tabellen und Rechnungen ist qwen2.5vl am besten. Für starke Geräte: qwen2.5vl:7b, für schwächere: qwen2.5vl:3b.\nWichtig: Setzen Sie die Variable OLLAMA_ORIGINS vor dem Start von Ollama, um Browser-Zugriff zu erlauben.",
-    ollama_err_title:"Ollama nicht erreichbar",
-    ollama_err_desc:"Stellen Sie sicher, dass Ollama läuft, das Modell geladen ist (ollama pull qwen2.5vl:7b) und OLLAMA_ORIGINS vor dem Start auf * gesetzt wurde.\nTipp: Starten Sie die App über den lokalen Server (start-windows / start-mac), nicht per Doppelklick, damit Verbindung und Ordnerbindung funktionieren.",
+    ai_section:"Kostenpflichtige Vision-KI (optional)",
+    ai_explain:"Die kostenlose lokale Texterkennung funktioniert immer. Für schwierige Dokumente oder Handschrift können Sie Ihren OpenRouter-Schlüssel hinzufügen. Er wird nur auf Ihrem Gerät gespeichert.",
     api_key:"OpenRouter-Schlüssel", api_key_ph:"sk-or-...", save_key:"Schlüssel speichern", key_saved:"Schlüssel gespeichert",
     key_cleared:"Schlüssel entfernt", clear_key:"Entfernen", key_set:"Schlüssel konfiguriert ✓", key_unset:"Nicht konfiguriert",
     requires_key:"Dieses Dokument benötigt die Vision-KI. Fügen Sie einen OpenRouter-Schlüssel hinzu.",
@@ -485,49 +471,7 @@ async function visionOCR(dataUrl, fields, apiKey){
   return {rows, costCents, costApprox};
 }
 
-// المسار المحلي المجاني عبر Ollama (نموذج رؤية على جهاز المستخدم)
-// يُرجع {rows:[...], costCents:0}
-async function ollamaOCR(dataUrl, fields, cfg){
-  const base=(cfg.url||"http://localhost:11434").replace(/\/+$/,"");
-  const model=cfg.model||"qwen2.5vl:7b";
-  const schema={}; fields.forEach(f=>schema[f.name]=`${f.type} or null`);
-  // Ollama يحتاج base64 نقي بدون البادئة data:
-  const b64=String(dataUrl).split(",")[1]||"";
-  const prompt="You extract structured data from an image of a document or table. "
-    +"The image may contain MULTIPLE rows/records. Extract EVERY row. "
-    +"Map each row's cells to these JSON keys: "+JSON.stringify(schema)+". "
-    +"Do not hallucinate; if a cell is missing or unreadable use null. "
-    +'Respond with ONLY a valid JSON object of the exact form {"rows":[ {<keys>}, ... ]}. One object per row. No markdown, no explanation, ONLY JSON.';
-  const body={
-    model, stream:false,
-    options:{temperature:0},
-    messages:[{role:"user", content:prompt, images:[b64]}]
-  };
-  let r;
-  try{
-    r=await fetch(base+"/api/chat",{
-      method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)
-    });
-  }catch(netErr){
-    throw new Error("OLLAMA_UNREACHABLE");
-  }
-  if(!r.ok){
-    let errMsg="ollama "+r.status;
-    try{ const ej=await r.json(); errMsg=ej.error||errMsg; }catch(e){}
-    throw new Error(errMsg);
-  }
-  const j=await r.json();
-  let c=(j.message&&j.message.content||"").trim();
-  // تنظيف: إزالة أي markdown wrapping
-  c=c.replace(/^```json?\s*/i,"").replace(/```\s*$/,"").trim();
-  let parsed; try{ parsed=JSON.parse(c); }catch(e){ parsed={rows:[]}; }
-  let rowsRaw=Array.isArray(parsed)?parsed:(parsed.rows||parsed.data||[parsed]);
-  if(!Array.isArray(rowsRaw)) rowsRaw=[rowsRaw];
-  const rows=rowsRaw.map(rw=>{
-    const out={}; fields.forEach(f=>out[f.name]=coerceVal(rw[f.name], f.type)); return out;
-  }).filter(rw=>fields.some(f=>rw[f.name]!=null));
-  return {rows, costCents:0, costApprox:false};
-}
+/* ---------------- 4) التصدير / النسخ الاحتياطي ---------------- */
 async function exportData(){
   const templates=await idbGetAll("templates");
   const documents=await idbGetAll("documents");
@@ -739,7 +683,6 @@ async function runScan(){
   btn.disabled=true; btn.innerHTML=`<span class="spinner"></span> ${t('scanning')}`;
   prog.innerHTML=`<div class="muted" style="margin-top:8px">${t('processing_img')}</div><div class="progress"><div class="bar" id="bar"></div></div>`;
 
-  const provider=await metaGet("vision_provider")||"openrouter"; // openrouter | ollama
   try{
     const canvas=enhanceImage(s.img);
     document.getElementById("bar").style.width="20%";
@@ -749,19 +692,8 @@ async function runScan(){
 
     if(confidence>=OCR_CONF_THRESHOLD){
       s.result={scanType:"Free",rows:mapFields(text,tpl.fields),conf:Math.round(confidence),costCents:0};
-    }else if(provider==="ollama"){
-      // المسار المحلي المجاني عبر Ollama
-      const cfg={url:await metaGet("ollama_url"),model:await metaGet("ollama_model")};
-      prog.querySelector(".muted").textContent=t('scanning_ollama');
-      try{
-        const {rows,costCents}=await ollamaOCR(s.dataUrl,tpl.fields,cfg);
-        s.result={scanType:"Local",rows,costCents:0};
-      }catch(oErr){
-        if(oErr.message==="OLLAMA_UNREACHABLE"){ s.result={ollamaError:true}; }
-        else { toast("Ollama: "+oErr.message,true); s.result=null; }
-      }
     }else{
-      // المسار المدفوع عبر OpenRouter
+      // الرجوع للمدفوع
       const key=await metaGet("openrouter_key");
       if(!key){
         document.getElementById("bar").style.width="100%";
@@ -774,12 +706,9 @@ async function runScan(){
     }
   }catch(err){
     console.error(err);
-    if(provider==="ollama"){ s.result={ollamaError:true}; }
-    else{
-      const key=await metaGet("openrouter_key");
-      if(!key){s.result={requiresKey:true};}
-      else{toast("OCR error: "+err.message,true);}
-    }
+    const key=await metaGet("openrouter_key");
+    if(!key){s.result={requiresKey:true};}
+    else{toast("OCR error: "+err.message,true);}
   }
   render();
 }
@@ -791,20 +720,13 @@ function renderResultForm(tpl){
     <div class="muted">${t('requires_key')}</div>
     <button class="btn btn-gold btn-sm" style="margin-top:12px" onclick="go('settings')">${t('nav_settings')}</button>
   </div>`;
-  if(r.ollamaError) return `<div class="card" style="background:rgba(179,64,47,.10);border-color:var(--danger)">
-    <div style="font-weight:700;color:var(--danger);margin-bottom:6px">⚠️ ${t('ollama_err_title')}</div>
-    <div class="muted" style="white-space:pre-line">${t('ollama_err_desc')}</div>
-    <button class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="go('settings')">${t('nav_settings')}</button>
-  </div>`;
   const rows=r.rows||[];
   const costTxt=(r.scanType==="Paid" && r.costCents!=null)
     ? ` · 💲 ${t('cost_label')}: ${r.costApprox?'≈ ':''}${r.costCents} ${t('cents')}`
     : "";
   const badge=r.scanType==="Paid"
     ?`<span class="scan-badge badge-paid">💎 ${t('type_paid')}${costTxt}</span>`
-    :(r.scanType==="Local"
-      ?`<span class="scan-badge badge-free">🖥️ ${t('type_local')}</span>`
-      :`<span class="scan-badge badge-free">🆓 ${t('type_free')} · ${r.conf}%</span>`);
+    :`<span class="scan-badge badge-free">🆓 ${t('type_free')} · ${r.conf}%</span>`;
   if(rows.length===0){
     return `${badge}<div class="muted" style="margin-top:12px">${t('no_rows')}</div>`;
   }
@@ -908,7 +830,7 @@ async function renderArchive(m){
         ${view.map(d=>`<tr>
           <td><b>${esc(d.title||'—')}</b></td>
           <td>${esc(tplName(d.templateId))}</td>
-          <td>${d.scanType==='Paid'?`<span class="scan-badge badge-paid">💎 ${t('type_paid')}</span>`:(d.scanType==='Local'?`<span class="scan-badge badge-free">🖥️ ${t('type_local')}</span>`:`<span class="scan-badge badge-free">🆓 ${t('type_free')}</span>`)}</td>
+          <td>${d.scanType==='Paid'?`<span class="scan-badge badge-paid">💎 ${t('type_paid')}</span>`:`<span class="scan-badge badge-free">🆓 ${t('type_free')}</span>`}</td>
           <td class="muted">${d.scanType==='Paid'&&d.costCents!=null?`${d.costApprox?'≈ ':''}${d.costCents} ${t('cents')}`:'—'}</td>
           <td class="muted">${new Date(d.createdAt).toLocaleDateString()}</td>
           <td>
@@ -1130,9 +1052,6 @@ async function reallyDelTpl(id){await idbDel("templates",id);if(_dirHandle)await
 /* ----- صفحة الإعدادات ----- */
 async function renderSettings(m){
   const key=await metaGet("openrouter_key");
-  const provider=await metaGet("vision_provider")||"openrouter";
-  const ollamaUrl=await metaGet("ollama_url")||"http://localhost:11434";
-  const ollamaModel=await metaGet("ollama_model")||"qwen2.5vl:7b";
   m.innerHTML=`
     <div class="page active">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
@@ -1162,35 +1081,16 @@ async function renderSettings(m){
       </div>
 
       <div class="card">
-        <h3>🤖 ${t('ai_section')}</h3>
+        <h3>💎 ${t('ai_section')}</h3>
         <p class="muted">${t('ai_explain')}</p>
-        <label style="margin-top:14px">${t('provider_label')}</label>
-        <select id="provSel" onchange="changeProvider(this.value)">
-          <option value="openrouter" ${provider==='openrouter'?'selected':''}>💎 ${t('prov_openrouter')}</option>
-          <option value="ollama" ${provider==='ollama'?'selected':''}>🖥️ ${t('prov_ollama')}</option>
-        </select>
-
-        ${provider==='openrouter'?`
-        <div style="margin-top:16px">
+        <div style="margin-top:12px">
           <span class="scan-badge ${key?'badge-free':'badge-paid'}">${key?t('key_set'):t('key_unset')}</span>
         </div>
         <div class="row" style="margin-top:12px;align-items:flex-end">
           <div style="flex:3"><label>${t('api_key')}</label><input id="apiKey" type="password" placeholder="${t('api_key_ph')}"></div>
           <div style="flex:0"><label>&nbsp;</label><button class="btn btn-primary" onclick="saveKey()">${t('save_key')}</button></div>
           ${key?`<div style="flex:0"><label>&nbsp;</label><button class="btn btn-danger" onclick="clearKey()">${t('clear_key')}</button></div>`:''}
-        </div>`:`
-        <div style="margin-top:16px;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:14px">
-          <div class="muted" style="white-space:pre-line;font-size:13px;margin-bottom:12px">${t('ollama_help')}</div>
-          <div class="row" style="align-items:flex-end">
-            <div style="flex:2"><label>${t('ollama_url_label')}</label><input id="ollamaUrl" value="${esc(ollamaUrl)}" placeholder="http://localhost:11434"></div>
-            <div style="flex:2"><label>${t('ollama_model_label')}</label><input id="ollamaModel" value="${esc(ollamaModel)}" placeholder="qwen2.5vl:7b"></div>
-          </div>
-          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-primary btn-sm" onclick="saveOllama()">💾 ${t('save_key')}</button>
-            <button class="btn btn-ghost btn-sm" onclick="testOllama()">🔌 ${t('ollama_test')}</button>
-            <span id="ollamaStatus" class="muted" style="align-self:center"></span>
-          </div>
-        </div>`}
+        </div>
       </div>
       <div class="card">
         <h3>🔑 ${t('pw_section')}</h3>
@@ -1226,30 +1126,6 @@ async function saveKey(){
   if(!v)return; await metaSet("openrouter_key",v); toast(t('key_saved')); render();
 }
 async function clearKey(){await idbDel("meta","openrouter_key");toast(t('key_cleared'));render();}
-
-async function changeProvider(v){await metaSet("vision_provider",v);render();}
-async function saveOllama(){
-  const url=document.getElementById("ollamaUrl").value.trim()||"http://localhost:11434";
-  const model=document.getElementById("ollamaModel").value.trim()||"qwen2.5vl:7b";
-  await metaSet("ollama_url",url); await metaSet("ollama_model",model);
-  toast(t('key_saved'));
-}
-async function testOllama(){
-  const url=(document.getElementById("ollamaUrl").value.trim()||"http://localhost:11434").replace(/\/+$/,"");
-  const st=document.getElementById("ollamaStatus");
-  st.textContent="⏳ ..."; st.style.color="";
-  try{
-    const r=await fetch(url+"/api/tags");
-    if(!r.ok) throw new Error("status "+r.status);
-    const j=await r.json();
-    const names=(j.models||[]).map(x=>x.name);
-    st.style.color="var(--accent-deep)";
-    st.textContent="✓ "+t('ollama_ok')+(names.length?(" — "+names.length+" "+t('ollama_models_count')):"");
-  }catch(e){
-    st.style.color="var(--danger)";
-    st.textContent="✗ "+t('ollama_fail');
-  }
-}
 
 function lockSettings(){STATE.settingsUnlocked=false;go('scan');}
 
