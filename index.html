@@ -497,9 +497,9 @@ async function ollamaOCR(dataUrl, fields, cfg){
     +"The image may contain MULTIPLE rows/records. Extract EVERY row. "
     +"Map each row's cells to these JSON keys: "+JSON.stringify(schema)+". "
     +"Do not hallucinate; if a cell is missing or unreadable use null. "
-    +'Respond with ONLY a valid JSON object of the exact form {"rows":[ {<keys>}, ... ]}. One object per row.';
+    +'Respond with ONLY a valid JSON object of the exact form {"rows":[ {<keys>}, ... ]}. One object per row. No markdown, no explanation, ONLY JSON.';
   const body={
-    model, stream:false, format:"json",
+    model, stream:false,
     options:{temperature:0},
     messages:[{role:"user", content:prompt, images:[b64]}]
   };
@@ -509,11 +509,17 @@ async function ollamaOCR(dataUrl, fields, cfg){
       method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)
     });
   }catch(netErr){
-    throw new Error("OLLAMA_UNREACHABLE");   // فشل اتصال/‏CORS/‏Mixed-Content
+    throw new Error("OLLAMA_UNREACHABLE");
   }
-  if(!r.ok) throw new Error("ollama "+r.status);
+  if(!r.ok){
+    let errMsg="ollama "+r.status;
+    try{ const ej=await r.json(); errMsg=ej.error||errMsg; }catch(e){}
+    throw new Error(errMsg);
+  }
   const j=await r.json();
-  let c=(j.message&&j.message.content||"").trim().replace(/^```json?|```$/g,"").trim();
+  let c=(j.message&&j.message.content||"").trim();
+  // تنظيف: إزالة أي markdown wrapping
+  c=c.replace(/^```json?\s*/i,"").replace(/```\s*$/,"").trim();
   let parsed; try{ parsed=JSON.parse(c); }catch(e){ parsed={rows:[]}; }
   let rowsRaw=Array.isArray(parsed)?parsed:(parsed.rows||parsed.data||[parsed]);
   if(!Array.isArray(rowsRaw)) rowsRaw=[rowsRaw];
