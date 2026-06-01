@@ -194,7 +194,9 @@ const I18N = {
     drop_here:"اسحب الصورة هنا أو اضغط للاختيار", drop_hint:"PNG · JPG · من الكاميرا أو الملفات",
     use_camera:"التقاط بالكاميرا", original:"المستند الأصلي", extracted:"البيانات المستخرجة",
     btn_scan:"بدء الاستخراج", scanning:"جارٍ الاستخراج…", confirm_save:"تأكيد وحفظ",
-    scan_first:"ارفع صورة واختر قالباً أولاً", saved_ok:"تم حفظ المستند في الأرشيف",
+    confirm_save_all:"تأكيد وحفظ كل السجلات", rows_found:"السجلات المكتشفة", add_row:"إضافة سجل",
+    no_rows:"لم يتم اكتشاف أي بيانات", cost_label:"التكلفة", cents:"سنت", col_cost:"التكلفة",
+    scan_first:"ارفع صورة واختر قالباً أولاً", saved_ok:"تم حفظ السجلات في الأرشيف",
     type_free:"مجاني (محلي)", type_paid:"مدفوع (ذكاء بصري)",
     // archive
     archive_title:"الأرشيف", archive_desc:"ابحث وصفِّ المستندات المحفوظة على جهازك.",
@@ -238,7 +240,9 @@ const I18N = {
     drop_here:"Bild hierher ziehen oder klicken", drop_hint:"PNG · JPG · Kamera oder Datei",
     use_camera:"Mit Kamera aufnehmen", original:"Originaldokument", extracted:"Extrahierte Daten",
     btn_scan:"Extraktion starten", scanning:"Extrahiere…", confirm_save:"Bestätigen & Speichern",
-    scan_first:"Bitte zuerst Bild und Vorlage wählen", saved_ok:"Dokument im Archiv gespeichert",
+    confirm_save_all:"Alle Datensätze speichern", rows_found:"Erkannte Datensätze", add_row:"Datensatz hinzufügen",
+    no_rows:"Keine Daten erkannt", cost_label:"Kosten", cents:"Cent", col_cost:"Kosten",
+    scan_first:"Bitte zuerst Bild und Vorlage wählen", saved_ok:"Datensätze im Archiv gespeichert",
     type_free:"Kostenlos (lokal)", type_paid:"Kostenpflichtig (Vision-KI)",
     archive_title:"Archiv", archive_desc:"Durchsuchen und filtern Sie Ihre lokal gespeicherten Dokumente.",
     search_ph:"Volltextsuche…", filter_all:"Alle Vorlagen", export_excel:"Excel-Export",
@@ -355,33 +359,64 @@ async function localOCR(canvas, onProgress){
   return {text:data.text||"", confidence:data.confidence||0};
 }
 
-// تعيين النص المستخرج على حقول القالب (regex بسيط حسب النوع)
-function mapFields(text, fields){
-  const out={};
-  for(const f of fields){
-    const re=new RegExp(f.name.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\s*[:：\\-]?\\s*(.+)","i");
-    const m=text.match(re);
-    let val=m?m[1].split(/\n/)[0].trim():null;
-    if(val && f.type==="number"){const n=val.match(/-?\d[\d.,]*/);val=n?parseFloat(n[0].replace(/,/g,"")):null;}
-    else if(val && f.type==="date"){const dm=val.match(/\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}/);val=dm?dm[0]:null;}
-    out[f.name]=val||null;
-  }
-  return out;
+// تنظيف قيمة مفردة حسب نوع الحقل
+function coerceVal(val, type){
+  if(val==null) return null;
+  val=String(val).trim();
+  if(!val) return null;
+  if(type==="number"){const n=val.match(/-?\d[\d.,]*/);return n?parseFloat(n[0].replace(/,/g,"")):null;}
+  if(type==="date"){const dm=val.match(/\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}/);return dm?dm[0]:val;}
+  return val;
 }
 
+// تعيين النص المستخرج على حقول القالب — يُرجع مصفوفة صفوف (كل سطر = سجل)
+function mapFields(text, fields){
+  const lines=text.split(/\n/).map(l=>l.trim()).filter(Boolean);
+  const rows=[];
+  for(const line of lines){
+    // تقسيم السطر إلى خلايا حسب الفواصل أو المسافات المتعددة
+    const cells=line.split(/\s{2,}|\t|[|｜]/).map(c=>c.trim()).filter(Boolean);
+    if(cells.length<2) continue;              // تجاهل أسطر العناوين أو الأسطر الفارغة
+    const row={};
+    let hasData=false;
+    fields.forEach((f,i)=>{
+      const v=coerceVal(cells[i], f.type);
+      row[f.name]=v;
+      if(v!=null) hasData=true;
+    });
+    if(hasData) rows.push(row);
+  }
+  // إن لم نتمكن من تقسيم صفوف، نرجع صفًّا واحدًا بالطريقة القديمة
+  if(rows.length===0){
+    const out={};
+    for(const f of fields){
+      const re=new RegExp(f.name.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\s*[:：\\-]?\\s*(.+)","i");
+      const m=text.match(re);
+      out[f.name]=coerceVal(m?m[1].split(/\n/)[0]:null, f.type);
+    }
+    return [out];
+  }
+  return rows;
+}
+
+// أسعار النموذج (دولار لكل مليون توكن) لتقدير التكلفة — gpt-4o
+const MODEL_PRICE={input:2.5, output:10.0}; // USD / 1M tokens
+
 // المسار المدفوع: OpenRouter Vision (يُستخدم مفتاح المستخدم من جهازه فقط)
+// يُرجع {rows:[...], costCents:number}
 async function visionOCR(dataUrl, fields, apiKey){
   const schema={}; fields.forEach(f=>schema[f.name]=`${f.type} or null`);
   const body={
     model:"openai/gpt-4o",
     messages:[
-      {role:"system",content:"Extract the exact values from the image and map them to the provided JSON schema. Do not hallucinate. If a value is missing or unreadable, return null. Respond with ONLY a valid JSON object."},
+      {role:"system",content:"You extract structured data from an image of a document or table. The image may contain MULTIPLE rows/records. Extract EVERY row. Map each row's cells to the provided JSON keys. Do not hallucinate; if a cell is missing or unreadable use null. Respond with ONLY a valid JSON object of the exact form {\"rows\":[ {<keys>}, ... ]}. One object per row."},
       {role:"user",content:[
-        {type:"text",text:"Target JSON keys: "+JSON.stringify(schema)},
+        {type:"text",text:"JSON keys for each row: "+JSON.stringify(schema)+'. Return {"rows":[...]} with one object per detected row.'},
         {type:"image_url",image_url:{url:dataUrl}}
       ]}
     ],
-    temperature:0, response_format:{type:"json_object"}
+    temperature:0, response_format:{type:"json_object"},
+    usage:{include:true}
   };
   const r=await fetch("https://openrouter.ai/api/v1/chat/completions",{
     method:"POST",
@@ -391,9 +426,24 @@ async function visionOCR(dataUrl, fields, apiKey){
   if(!r.ok) throw new Error("openrouter "+r.status);
   const j=await r.json();
   let c=j.choices[0].message.content.trim().replace(/^```json?|```$/g,"").trim();
-  const parsed=JSON.parse(c); const out={};
-  fields.forEach(f=>out[f.name]=parsed[f.name]??null);
-  return out;
+  const parsed=JSON.parse(c);
+  let rowsRaw=Array.isArray(parsed)?parsed:(parsed.rows||parsed.data||[parsed]);
+  if(!Array.isArray(rowsRaw)) rowsRaw=[rowsRaw];
+  const rows=rowsRaw.map(rw=>{
+    const out={}; fields.forEach(f=>out[f.name]=coerceVal(rw[f.name], f.type)); return out;
+  }).filter(rw=>fields.some(f=>rw[f.name]!=null));
+
+  // حساب التكلفة بالسنتات
+  let costCents=null;
+  const u=j.usage||{};
+  if(u.cost!=null){                                  // OpenRouter يرجع التكلفة الفعلية بالدولار أحياناً
+    costCents=Math.round(u.cost*100*1000)/1000;
+  }else if(u.prompt_tokens!=null||u.completion_tokens!=null){
+    const inC=(u.prompt_tokens||0)/1e6*MODEL_PRICE.input;
+    const outC=(u.completion_tokens||0)/1e6*MODEL_PRICE.output;
+    costCents=Math.round((inC+outC)*100*1000)/1000;  // 3 منازل عشرية للسنت
+  }
+  return {rows, costCents};
 }
 
 /* ---------------- 4) التصدير / النسخ الاحتياطي ---------------- */
@@ -415,11 +465,21 @@ function downloadBlob(blob,name){
 // تصدير الأرشيف (المفلتر) إلى Excel — صيغة Excel XML بسيطة تفتح مباشرة
 function exportExcel(docs, templates){
   const tplName=id=>(templates.find(x=>x.id===id)||{}).name||"";
-  let rows=`<tr><th>${t('col_title')}</th><th>${t('col_template')}</th><th>${t('col_type')}</th><th>${t('col_date')}</th></tr>`;
+  // جمع كل أسماء الحقول الظاهرة في المستندات للحصول على أعمدة ديناميكية
+  const fieldSet=[];
+  docs.forEach(d=>{Object.keys(d.data||{}).forEach(k=>{if(!fieldSet.includes(k))fieldSet.push(k);});});
+  let head=`<tr><th>${t('col_template')}</th>`;
+  fieldSet.forEach(k=>head+=`<th>${esc(k)}</th>`);
+  head+=`<th>${t('col_type')}</th><th>${t('col_cost')}</th><th>${t('col_date')}</th></tr>`;
+  let rows="";
   docs.forEach(d=>{
-    rows+=`<tr><td>${esc(d.title||"")}</td><td>${esc(tplName(d.templateId))}</td><td>${d.scanType==='Paid'?t('type_paid'):t('type_free')}</td><td>${new Date(d.createdAt).toLocaleDateString()}</td></tr>`;
+    rows+=`<tr><td>${esc(tplName(d.templateId))}</td>`;
+    fieldSet.forEach(k=>rows+=`<td>${esc(d.data&&d.data[k]!=null?d.data[k]:"")}</td>`);
+    rows+=`<td>${d.scanType==='Paid'?t('type_paid'):t('type_free')}</td>`;
+    rows+=`<td>${d.scanType==='Paid'&&d.costCents!=null?d.costCents+' '+t('cents'):''}</td>`;
+    rows+=`<td>${new Date(d.createdAt).toLocaleDateString()}</td></tr>`;
   });
-  const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table>${rows}</table></body></html>`;
+  const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table>${head}${rows}</table></body></html>`;
   downloadBlob(new Blob(['\ufeff'+html],{type:"application/vnd.ms-excel"}),"archive.xls");
 }
 
@@ -606,7 +666,7 @@ async function runScan(){
     document.getElementById("bar").style.width="85%";
 
     if(confidence>=OCR_CONF_THRESHOLD){
-      s.result={scanType:"Free",data:mapFields(text,tpl.fields),conf:Math.round(confidence)};
+      s.result={scanType:"Free",rows:mapFields(text,tpl.fields),conf:Math.round(confidence),costCents:0};
     }else{
       // الرجوع للمدفوع
       const key=await metaGet("openrouter_key");
@@ -615,8 +675,8 @@ async function runScan(){
         s.result={requiresKey:true};
       }else{
         prog.querySelector(".muted").textContent=t('scanning');
-        const data=await visionOCR(s.dataUrl,tpl.fields,key);
-        s.result={scanType:"Paid",data};
+        const {rows,costCents}=await visionOCR(s.dataUrl,tpl.fields,key);
+        s.result={scanType:"Paid",rows,costCents};
       }
     }
   }catch(err){
@@ -635,38 +695,79 @@ function renderResultForm(tpl){
     <div class="muted">${t('requires_key')}</div>
     <button class="btn btn-gold btn-sm" style="margin-top:12px" onclick="go('settings')">${t('nav_settings')}</button>
   </div>`;
+  const rows=r.rows||[];
+  const costTxt=(r.scanType==="Paid" && r.costCents!=null)
+    ? ` · 💲 ${t('cost_label')}: ${r.costCents} ${t('cents')}`
+    : "";
   const badge=r.scanType==="Paid"
-    ?`<span class="scan-badge badge-paid">💎 ${t('type_paid')}</span>`
+    ?`<span class="scan-badge badge-paid">💎 ${t('type_paid')}${costTxt}</span>`
     :`<span class="scan-badge badge-free">🆓 ${t('type_free')} · ${r.conf}%</span>`;
+  if(rows.length===0){
+    return `${badge}<div class="muted" style="margin-top:12px">${t('no_rows')}</div>`;
+  }
+  // جدول صفوف قابل للتحرير
+  const head=`<tr>${tpl.fields.map(f=>`<th>${esc(f.name)} ${f.required?'<span style="color:var(--danger)">*</span>':''}</th>`).join("")}<th></th></tr>`;
+  const body=rows.map((row,ri)=>`<tr data-row="${ri}">
+    ${tpl.fields.map(f=>`<td><input data-row="${ri}" data-field="${esc(f.name)}" value="${esc(row[f.name]??'')}" style="min-width:90px"></td>`).join("")}
+    <td><button class="btn btn-danger btn-sm" onclick="rmScanRow(${ri})">✕</button></td>
+  </tr>`).join("");
   return `${badge}
-    <div class="kv">
-    ${tpl.fields.map((f,i)=>`<div class="pair">
-      <label>${esc(f.name)} ${f.required?'<span style="color:var(--danger)">*</span>':''} <span class="muted">(${t('t_'+f.type)})</span></label>
-      <input data-field="${esc(f.name)}" value="${esc(r.data[f.name]??'')}">
-    </div>`).join("")}
+    <div style="margin-top:10px;color:var(--accent-deep);font-weight:600;font-size:13px">${t('rows_found')}: ${rows.length}</div>
+    <div style="overflow:auto;margin-top:8px">
+      <table>${head}${body}</table>
     </div>
-    <button class="btn btn-primary" style="margin-top:16px;width:100%" onclick="saveDoc()">💾 ${t('confirm_save')}</button>`;
+    <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="addScanRow()">➕ ${t('add_row')}</button>
+    <button class="btn btn-primary" style="margin-top:16px;width:100%" onclick="saveDoc()">💾 ${t('confirm_save_all')} (${rows.length})</button>`;
+}
+
+// تحديث الصفوف من المدخلات قبل أي إعادة رسم
+function collectScanRows(tpl){
+  const rows=[];
+  document.querySelectorAll("tr[data-row]").forEach(tr=>{
+    const ri=tr.dataset.row; const row={};
+    tr.querySelectorAll("input[data-field]").forEach(inp=>{row[inp.dataset.field]=inp.value||null;});
+    rows.push(row);
+  });
+  return rows;
+}
+async function addScanRow(){
+  const tpls=await idbGetAll("templates");const tpl=tpls.find(x=>x.id===STATE.scan.templateId);
+  STATE.scan.result.rows=collectScanRows(tpl);
+  const empty={}; tpl.fields.forEach(f=>empty[f.name]=null);
+  STATE.scan.result.rows.push(empty);
+  render();
+}
+async function rmScanRow(i){
+  const tpls=await idbGetAll("templates");const tpl=tpls.find(x=>x.id===STATE.scan.templateId);
+  STATE.scan.result.rows=collectScanRows(tpl);
+  STATE.scan.result.rows.splice(i,1);
+  render();
 }
 
 async function saveDoc(){
   const s=STATE.scan;
   const tpls=await idbGetAll("templates");
   const tpl=tpls.find(x=>x.id===s.templateId);
-  const data={};
-  document.querySelectorAll("[data-field]").forEach(inp=>{data[inp.dataset.field]=inp.value||null;});
-  const id=uid();
-  // حفظ الصورة منفصلة
-  await idbPut("images",{id,dataUrl:s.dataUrl});
-  const doc={id,templateId:tpl.id,title:data[tpl.fields[0].name]||tpl.name,
-    scanType:s.result.scanType,data,createdAt:new Date().toISOString(),imageId:id};
-  await idbPut("documents",doc);
-  // مزامنة المجلد إن وُجد + حفظ نسخة الصورة فيه
+  const rows=collectScanRows(tpl).filter(row=>tpl.fields.some(f=>row[f.name]));
+  if(rows.length===0){toast(t('no_rows'),true);return;}
+  // صورة واحدة مشتركة لكل الصفوف (المصدر نفسه)
+  const imgId=uid();
+  await idbPut("images",{id:imgId,dataUrl:s.dataUrl});
   if(_dirHandle){
     const blob=await (await fetch(s.dataUrl)).blob();
-    await writeToFolder("images/"+id+".png",blob).catch(()=>{});
-    await syncToFolder();
+    await writeToFolder("images/"+imgId+".png",blob).catch(()=>{});
   }
-  toast(t('saved_ok'));
+  const now=new Date().toISOString();
+  const costPer = (s.result.scanType==="Paid" && s.result.costCents!=null)
+    ? Math.round((s.result.costCents/rows.length)*1000)/1000 : 0;
+  for(const data of rows){
+    const id=uid();
+    const doc={id,templateId:tpl.id,title:data[tpl.fields[0].name]||tpl.name,
+      scanType:s.result.scanType,data,createdAt:now,imageId:imgId,costCents:costPer};
+    await idbPut("documents",doc);
+  }
+  if(_dirHandle) await syncToFolder();
+  toast(rows.length+" — "+t('saved_ok'));
   STATE.scan={img:null,dataUrl:null,result:null,templateId:s.templateId};
   go('archive');
 }
@@ -699,12 +800,13 @@ async function renderArchive(m){
       <div class="card">
         ${view.length===0?`<div class="empty"><div class="big">🗄️</div>${t('no_docs')}</div>`:`
         <table><thead><tr>
-          <th>${t('col_title')}</th><th>${t('col_template')}</th><th>${t('col_type')}</th><th>${t('col_date')}</th><th>${t('col_actions')}</th>
+          <th>${t('col_title')}</th><th>${t('col_template')}</th><th>${t('col_type')}</th><th>${t('col_cost')}</th><th>${t('col_date')}</th><th>${t('col_actions')}</th>
         </tr></thead><tbody>
         ${view.map(d=>`<tr>
           <td><b>${esc(d.title||'—')}</b></td>
           <td>${esc(tplName(d.templateId))}</td>
           <td>${d.scanType==='Paid'?`<span class="scan-badge badge-paid">💎 ${t('type_paid')}</span>`:`<span class="scan-badge badge-free">🆓 ${t('type_free')}</span>`}</td>
+          <td class="muted">${d.scanType==='Paid'&&d.costCents!=null?`${d.costCents} ${t('cents')}`:'—'}</td>
           <td class="muted">${new Date(d.createdAt).toLocaleDateString()}</td>
           <td>
             <button class="btn btn-ghost btn-sm" onclick="viewDoc('${d.id}')">${t('view')}</button>
