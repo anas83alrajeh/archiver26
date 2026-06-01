@@ -417,9 +417,9 @@ async function visionOCR(dataUrl, fields, apiKey){
   const body={
     model:"openai/gpt-4o",
     messages:[
-      {role:"system",content:"You extract TABULAR data from an image. The image contains a table or list with columns matching the provided JSON keys. Extract ONLY rows where data aligns with the defined columns. Each row must have values for the specified keys — if a column value is missing or unreadable for a row, use null. Do NOT treat standalone text, labels, headers, or scattered words as data rows. A valid row must have at least 2 filled fields that correspond to different columns in the table structure. Respond with ONLY a valid JSON object: {\"rows\":[ {...}, ... ]}."},
+      {role:"system",content:"You extract TABULAR data from a handwritten or printed document image.\n\nCRITICAL RULES:\n1. IDENTIFY TABLE STRUCTURE FIRST: Look for column headers or row labels in the image that match or resemble the provided JSON keys. The table may be organized as columns (top-to-bottom) OR rows (left-to-right).\n2. MATCH BY PROXIMITY: For each JSON key, find the header/label in the image that is closest in meaning or spelling to that key. Then extract the DATA values associated with that header — NOT the header itself.\n3. HEADERS ARE NOT DATA: Words like 'Name', 'Nr', 'Date', etc. that serve as column/row titles must NEVER appear as extracted values.\n4. ALIGN DATA ACROSS COLUMNS: If the table has columns, each row is formed by values at the same vertical position across columns. If the table has labeled rows, extract the value next to each label.\n5. Only return rows where at least 2 fields have actual data values (not headers, not labels).\n6. If a value is missing or unreadable, use null.\n\nRespond with ONLY a valid JSON object: {\"rows\":[ {...}, ... ]}."},
       {role:"user",content:[
-        {type:"text",text:"Table column keys: "+JSON.stringify(schema)+'. Extract only rows that match this table structure. Return {"rows":[...]} — one object per TABLE ROW only.'},
+        {type:"text",text:"JSON keys to match against table headers: "+JSON.stringify(schema)+'. Find headers in the image matching these keys, then extract the DATA under/beside each header. Return {"rows":[...]} — one object per data row. Do NOT include header text as values.'},
         {type:"image_url",image_url:{url:dataUrl}}
       ]}
     ],
