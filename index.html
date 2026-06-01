@@ -221,7 +221,7 @@ const I18N = {
     link_folder:"ربط مجلد على الجهاز", folder_linked:"المجلد المربوط:", unsupported_fs:"متصفحك لا يدعم اختيار مجلد مباشرة — استخدم تصدير/استيراد النسخة الاحتياطية بدلاً من ذلك.",
     backup_section:"نسخة احتياطية", export_backup:"تصدير نسخة احتياطية", import_backup:"استيراد نسخة",
     ai_section:"الذكاء البصري المدفوع (اختياري)",
-    ai_explain:"القراءة المحلية المجانية تعمل دائماً. للمستندات الصعبة أو الخط اليدوي، يمكنك إضافة مفتاح OpenRouter الخاص بك. يُحفظ على جهازك فقط ولا يُرسل لأحد.",
+    ai_explain:"القراءة المحلية المجانية (Tesseract) تعمل دائماً. للمستندات الصعبة أو الخط اليدوي، يمكنك إضافة مفتاح OpenRouter الخاص بك. يُحفظ على جهازك فقط ولا يُرسل لأحد.",
     api_key:"مفتاح OpenRouter", api_key_ph:"sk-or-...", save_key:"حفظ المفتاح", key_saved:"تم حفظ المفتاح",
     key_cleared:"تم مسح المفتاح", clear_key:"مسح", key_set:"مفتاح مُهيّأ ✓", key_unset:"غير مُهيّأ",
     requires_key:"هذا المستند يحتاج للذكاء البصري المدفوع. أضف مفتاح OpenRouter من الإعدادات.",
@@ -268,7 +268,7 @@ const I18N = {
     link_folder:"Ordner verknüpfen", folder_linked:"Verknüpfter Ordner:", unsupported_fs:"Ihr Browser unterstützt keine Ordnerauswahl — nutzen Sie stattdessen Export/Import.",
     backup_section:"Sicherung", export_backup:"Sicherung exportieren", import_backup:"Sicherung importieren",
     ai_section:"Kostenpflichtige Vision-KI (optional)",
-    ai_explain:"Die kostenlose lokale Texterkennung funktioniert immer. Für schwierige Dokumente oder Handschrift können Sie Ihren OpenRouter-Schlüssel hinzufügen. Er wird nur auf Ihrem Gerät gespeichert.",
+    ai_explain:"Die kostenlose lokale Texterkennung (Tesseract) funktioniert immer. Für schwierige Dokumente oder Handschrift können Sie Ihren OpenRouter-Schlüssel hinzufügen. Er wird nur auf Ihrem Gerät gespeichert.",
     api_key:"OpenRouter-Schlüssel", api_key_ph:"sk-or-...", save_key:"Schlüssel speichern", key_saved:"Schlüssel gespeichert",
     key_cleared:"Schlüssel entfernt", clear_key:"Entfernen", key_set:"Schlüssel konfiguriert ✓", key_unset:"Nicht konfiguriert",
     requires_key:"Dieses Dokument benötigt die Vision-KI. Fügen Sie einen OpenRouter-Schlüssel hinzu.",
@@ -417,9 +417,9 @@ async function visionOCR(dataUrl, fields, apiKey){
   const body={
     model:"openai/gpt-4o",
     messages:[
-      {role:"system",content:"You extract structured data from an image of a document or table. The image may contain MULTIPLE rows/records. Extract EVERY row. Map each row's cells to the provided JSON keys. Do not hallucinate; if a cell is missing or unreadable use null. Respond with ONLY a valid JSON object of the exact form {\"rows\":[ {<keys>}, ... ]}. One object per row."},
+      {role:"system",content:"You extract TABULAR data from an image. The image contains a table or list with columns matching the provided JSON keys. Extract ONLY rows where data aligns with the defined columns. Each row must have values for the specified keys — if a column value is missing or unreadable for a row, use null. Do NOT treat standalone text, labels, headers, or scattered words as data rows. A valid row must have at least 2 filled fields that correspond to different columns in the table structure. Respond with ONLY a valid JSON object: {\"rows\":[ {...}, ... ]}."},
       {role:"user",content:[
-        {type:"text",text:"JSON keys for each row: "+JSON.stringify(schema)+'. Return {"rows":[...]} with one object per detected row.'},
+        {type:"text",text:"Table column keys: "+JSON.stringify(schema)+'. Extract only rows that match this table structure. Return {"rows":[...]} — one object per TABLE ROW only.'},
         {type:"image_url",image_url:{url:dataUrl}}
       ]}
     ],
@@ -471,7 +471,6 @@ async function visionOCR(dataUrl, fields, apiKey){
   return {rows, costCents, costApprox};
 }
 
-/* ---------------- 4) التصدير / النسخ الاحتياطي ---------------- */
 async function exportData(){
   const templates=await idbGetAll("templates");
   const documents=await idbGetAll("documents");
@@ -693,7 +692,6 @@ async function runScan(){
     if(confidence>=OCR_CONF_THRESHOLD){
       s.result={scanType:"Free",rows:mapFields(text,tpl.fields),conf:Math.round(confidence),costCents:0};
     }else{
-      // الرجوع للمدفوع
       const key=await metaGet("openrouter_key");
       if(!key){
         document.getElementById("bar").style.width="100%";
@@ -1083,7 +1081,7 @@ async function renderSettings(m){
       <div class="card">
         <h3>💎 ${t('ai_section')}</h3>
         <p class="muted">${t('ai_explain')}</p>
-        <div style="margin-top:12px">
+        <div style="margin-top:16px">
           <span class="scan-badge ${key?'badge-free':'badge-paid'}">${key?t('key_set'):t('key_unset')}</span>
         </div>
         <div class="row" style="margin-top:12px;align-items:flex-end">
