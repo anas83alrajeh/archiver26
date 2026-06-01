@@ -415,8 +415,7 @@ async function visionOCR(dataUrl, fields, apiKey){
         {type:"image_url",image_url:{url:dataUrl}}
       ]}
     ],
-    temperature:0, response_format:{type:"json_object"},
-    usage:{include:true}
+    temperature:0, response_format:{type:"json_object"}
   };
   const r=await fetch("https://openrouter.ai/api/v1/chat/completions",{
     method:"POST",
@@ -433,17 +432,35 @@ async function visionOCR(dataUrl, fields, apiKey){
     const out={}; fields.forEach(f=>out[f.name]=coerceVal(rw[f.name], f.type)); return out;
   }).filter(rw=>fields.some(f=>rw[f.name]!=null));
 
-  // حساب التكلفة بالسنتات
-  let costCents=null;
+  // ===== التكلفة الفعلية بالسنتات =====
+  // الأولوية للتكلفة الحقيقية التي يرجعها OpenRouter (usage.cost بالدولار)،
+  // فهي تشمل توكنات الصورة وفروق المزوّد. التقدير المحلي غير دقيق فنتجنبه.
+  let costCents=null, costApprox=false;
   const u=j.usage||{};
-  if(u.cost!=null){                                  // OpenRouter يرجع التكلفة الفعلية بالدولار أحياناً
-    costCents=Math.round(u.cost*100*1000)/1000;
-  }else if(u.prompt_tokens!=null||u.completion_tokens!=null){
+  if(u.cost!=null){
+    costCents=Math.round(u.cost*100*1000)/1000;     // دولار → سنت (3 منازل)
+  }else if(j.id){
+    // الاستعلام عن إحصائيات التوليد للحصول على التكلفة الموثوقة
+    try{
+      await new Promise(res=>setTimeout(res,600));   // مهلة بسيطة حتى تُحتسب التكلفة
+      const g=await fetch("https://openrouter.ai/api/v1/generation?id="+encodeURIComponent(j.id),{
+        headers:{"Authorization":"Bearer "+apiKey}
+      });
+      if(g.ok){
+        const gj=await g.json();
+        const tc=gj?.data?.total_cost;
+        if(tc!=null) costCents=Math.round(tc*100*1000)/1000;
+      }
+    }catch(e){ /* نتجاهل ونلجأ للتقدير */ }
+  }
+  // ملاذ أخير: تقدير من التوكنات (تنبيه أنه تقريبي)
+  if(costCents==null && (u.prompt_tokens!=null||u.completion_tokens!=null)){
     const inC=(u.prompt_tokens||0)/1e6*MODEL_PRICE.input;
     const outC=(u.completion_tokens||0)/1e6*MODEL_PRICE.output;
-    costCents=Math.round((inC+outC)*100*1000)/1000;  // 3 منازل عشرية للسنت
+    costCents=Math.round((inC+outC)*100*1000)/1000;
+    costApprox=true;
   }
-  return {rows, costCents};
+  return {rows, costCents, costApprox};
 }
 
 /* ---------------- 4) التصدير / النسخ الاحتياطي ---------------- */
@@ -675,8 +692,8 @@ async function runScan(){
         s.result={requiresKey:true};
       }else{
         prog.querySelector(".muted").textContent=t('scanning');
-        const {rows,costCents}=await visionOCR(s.dataUrl,tpl.fields,key);
-        s.result={scanType:"Paid",rows,costCents};
+        const {rows,costCents,costApprox}=await visionOCR(s.dataUrl,tpl.fields,key);
+        s.result={scanType:"Paid",rows,costCents,costApprox};
       }
     }
   }catch(err){
@@ -697,7 +714,7 @@ function renderResultForm(tpl){
   </div>`;
   const rows=r.rows||[];
   const costTxt=(r.scanType==="Paid" && r.costCents!=null)
-    ? ` · 💲 ${t('cost_label')}: ${r.costCents} ${t('cents')}`
+    ? ` · 💲 ${t('cost_label')}: ${r.costApprox?'≈ ':''}${r.costCents} ${t('cents')}`
     : "";
   const badge=r.scanType==="Paid"
     ?`<span class="scan-badge badge-paid">💎 ${t('type_paid')}${costTxt}</span>`
@@ -763,7 +780,7 @@ async function saveDoc(){
   for(const data of rows){
     const id=uid();
     const doc={id,templateId:tpl.id,title:data[tpl.fields[0].name]||tpl.name,
-      scanType:s.result.scanType,data,createdAt:now,imageId:imgId,costCents:costPer};
+      scanType:s.result.scanType,data,createdAt:now,imageId:imgId,costCents:costPer,costApprox:!!s.result.costApprox};
     await idbPut("documents",doc);
   }
   if(_dirHandle) await syncToFolder();
@@ -806,7 +823,7 @@ async function renderArchive(m){
           <td><b>${esc(d.title||'—')}</b></td>
           <td>${esc(tplName(d.templateId))}</td>
           <td>${d.scanType==='Paid'?`<span class="scan-badge badge-paid">💎 ${t('type_paid')}</span>`:`<span class="scan-badge badge-free">🆓 ${t('type_free')}</span>`}</td>
-          <td class="muted">${d.scanType==='Paid'&&d.costCents!=null?`${d.costCents} ${t('cents')}`:'—'}</td>
+          <td class="muted">${d.scanType==='Paid'&&d.costCents!=null?`${d.costApprox?'≈ ':''}${d.costCents} ${t('cents')}`:'—'}</td>
           <td class="muted">${new Date(d.createdAt).toLocaleDateString()}</td>
           <td>
             <button class="btn btn-ghost btn-sm" onclick="viewDoc('${d.id}')">${t('view')}</button>
